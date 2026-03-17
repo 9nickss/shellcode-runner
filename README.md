@@ -15,7 +15,7 @@ A shellcode runner written in Rust. Write your own x86_64 shellcode in assembly,
 **Requirements:** Rust 1.75+, nasm, Linux x86_64
 
 ```bash
-git clone https://github.com/yourname/shellcode-runner
+git clone https://github.com/9nickss/shellcode-runner
 cd shellcode-runner
 
 # Write your shellcode in shellcodes/your_shellcode.asm, then assemble it
