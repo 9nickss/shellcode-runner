@@ -19,10 +19,15 @@ fn alloc_executable_memory(size: usize) -> *mut libc::c_void {
     };
 }
 
-fn copy_to_mem(shellcode: &[u8], mem: *mut libc::c_void) {
+fn copy_to_mem(shellcode: &[u8], mem: *mut libc::c_void) -> fn() {
     unsafe {
         std::ptr::copy_nonoverlapping(shellcode.as_ptr(), mem as *mut u8, shellcode.len());
+        std::mem::transmute::<*mut libc::c_void, fn()>(mem)
     }
+}
+
+fn exec(ptr: fn()) {
+    ptr();
 }
 
 fn main() {
@@ -34,6 +39,6 @@ fn main() {
     let shellcode = read_shellcode(&args[1]);
     let size = shellcode.len();
     let mem = alloc_executable_memory(size);
-    copy_to_mem(&shellcode, mem);
-    
+    let ptr = copy_to_mem(&shellcode, mem);
+    exec(ptr);
 }
