@@ -6,7 +6,7 @@
 
 > ⚠️ Strictly for educational purposes. Test only on machines you own in an isolated environment.
 
-A shellcode runner written in Rust. Write your own x86_64 shellcode in assembly, assemble it with `nasm`, and the runner will load it into executable memory and run it. Built to understand low-level memory execution and OS memory permissions.
+A shellcode runner written in Rust. Write your own x86_64 shellcode in assembly, assemble it with `nasm`, and the runner will load it into executable memory and run it. If it is RIP-Relative it won't work, it needs to be on the stack. Built to understand low-level memory execution and OS memory permissions.
 
 ---
 
