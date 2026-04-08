@@ -32,6 +32,12 @@ fn exec(ptr: *mut libc::c_void) {
     }
 }
 
+fn free_mem(mem: *mut libc::c_void, size: usize) {
+    unsafe {
+        libc::munmap(mem, size);
+    }
+}
+
 fn main() {
     let args: Vec<String> = env::args().collect();
     if args.len() < 2 {
@@ -42,4 +48,5 @@ fn main() {
     let size = shellcode.len();
     let mem = alloc_executable_memory(size);
     exec(copy_to_mem(&shellcode, mem));
+    free_mem(mem, size);
 }
