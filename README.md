@@ -107,6 +107,7 @@ cargo build --release
 **Dependencies:**
 - `nasm` - Assembler for x86-64 shellcode
 - `binutils` - For objcopy utility
+- `nix` - for ptrace
 - Rust 1.75+
 
 ---
