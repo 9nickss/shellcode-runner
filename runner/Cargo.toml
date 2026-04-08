@@ -1,6 +1,6 @@
 [[bin]]
 name = "runner"
-path = "src/main.rs"
+path = "src/runner.rs"
 
 [[bin]]
 name = "encryptor"
@@ -13,3 +13,4 @@ edition = "2021"
 
 [dependencies]
 libc = "0.2"
+nix = "0.27"

@@ -10,19 +10,32 @@ fn parse_key(key: &str) -> u8 {
         .expect("Invalid hex value in key") // 16 car hexadecimal (XOR)
 }
 
+fn xor_crypt(code: &mut Vec<u8>, key: u8) {
+    for byte in code.iter_mut() {
+        *byte ^= key;
+    }
+}
+
 fn check_args_key(args: &Vec<String>) -> u8 {
     if args.len() < 2 || args.len() > 3 { // avec key custom ou key de base
         eprintln!("Wrong number of arguments");
         std::process::exit(1);
     }
     if args.len() == 3 {
-        return parse_key(&args[2]);
+        parse_key(&args[2])
+    } else {
+        0xAA
     }
-    0xAA
+}
+
+fn save_crypted_code(filename: &str) {
+
 }
 
 fn main() {
     let args: Vec<String> = env::args().collect();
     let key = check_args_key(&args);
-    check_file(&args[1]);
+    let mut code: Vec<u8> = check_file(&args[1]);
+    code = xor_crypt(code, key);
+    save_crypted_code();
 }
