@@ -3,8 +3,7 @@ use std::fs;
 use libc;
 
 fn read_shellcode(path: &str) -> Vec<u8> {
-    let data: Vec<u8> = fs::read(path).expect("Failed to read file");
-    return data;
+    fs::read(path).expect("Failed to read file")
 }
 
 fn alloc_executable_memory(size: usize) -> *mut libc::c_void {
@@ -15,19 +14,22 @@ fn alloc_executable_memory(size: usize) -> *mut libc::c_void {
             eprintln!("mmap failed");
             std::process::exit(1);
         }
-        return mem;
-    };
-}
-
-fn copy_to_mem(shellcode: &[u8], mem: *mut libc::c_void) -> fn() {
-    unsafe {
-        std::ptr::copy_nonoverlapping(shellcode.as_ptr(), mem as *mut u8, shellcode.len());
-        std::mem::transmute::<*mut libc::c_void, fn()>(mem)
+        mem
     }
 }
 
-fn exec(ptr: fn()) {
-    ptr();
+fn copy_to_mem(shellcode: &[u8], mem: *mut libc::c_void) -> *mut libc::c_void {
+    unsafe {
+        std::ptr::copy_nonoverlapping(shellcode.as_ptr(), mem as *mut u8, shellcode.len());
+        mem
+    }
+}
+
+fn exec(ptr: *mut libc::c_void) {
+    unsafe {
+        let func = std::mem::transmute::<*mut libc::c_void, fn()>(ptr);
+        func();
+    }
 }
 
 fn main() {
@@ -39,6 +41,5 @@ fn main() {
     let shellcode = read_shellcode(&args[1]);
     let size = shellcode.len();
     let mem = alloc_executable_memory(size);
-    let ptr = copy_to_mem(&shellcode, mem);
-    exec(ptr);
+    exec(copy_to_mem(&shellcode, mem));
 }
