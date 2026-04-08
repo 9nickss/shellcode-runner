@@ -18,7 +18,7 @@ A comprehensive shellcode execution and evasion framework demonstrating advanced
 
 ### Evasion Techniques (WIP)
 - **Fileless Execution** : Execute from `/proc/self/mem` or stack instead of `mmap` to avoid kernel monitoring
-- **Process Injection** : Inject shellcode into legitimate processes using `ptrace` (Linux)
+- **Process Injection** : Inject shellcode into legitimate processes using `ptrace` (Linux), if it fails it will try to fork itself and inject into it's own child process
 - **LD_PRELOAD Hijacking** : Load malicious shared libraries before system libraries
 - **PATH Manipulation** : Replace legitimate binaries with trojaned versions
 - **Cron Job Injection** : Automated persistence through scheduler-based execution
