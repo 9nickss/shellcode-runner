@@ -1,6 +1,7 @@
 use std::env;
 use std::fs;
 use libc;
+use src::crypt;
 
 fn read_shellcode(path: &str) -> Vec<u8> {
     fs::read(path).expect("Failed to read file")

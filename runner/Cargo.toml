@@ -14,3 +14,4 @@ edition = "2021"
 [dependencies]
 libc = "0.2"
 nix = "0.27"
+clap = { version = "4", features = ["derive"] }

@@ -1,5 +1,6 @@
 use std::env;
 use std::fs;
+use src::crypt;
 
 fn check_file(file: &str) -> Vec<u8> {
     fs::read(file).expect("Failed to read file")
@@ -8,12 +9,6 @@ fn check_file(file: &str) -> Vec<u8> {
 fn parse_key(key: &str) -> u8 {
     u8::from_str_radix(key.strip_prefix("0x").expect("Invalid key prefix"), 16)
         .expect("Invalid hex value in key") // 16 car hexadecimal (XOR)
-}
-
-fn xor_crypt(code: &mut Vec<u8>, key: u8){
-    for byte in code.iter_mut() {
-        *byte ^= key;
-    }
 }
 
 fn check_args_key(args: &Vec<String>) -> u8 {
@@ -38,6 +33,6 @@ fn main() {
     let args: Vec<String> = env::args().collect();
     let key: u8 = check_args_key(&args);
     let mut code: Vec<u8> = check_file(&args[1]);
-    xor_crypt(&mut code, key);
+    crypt::xor_crypt(&mut code, key);
     save_xor_code(&args[1], &mut code);
 }
