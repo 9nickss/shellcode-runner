@@ -19,11 +19,10 @@ fn alloc_executable_memory(size: usize) -> *mut libc::c_void {
 }
 
 fn copy_to_mem(shellcode: &[u8], mem: *mut libc::c_void) -> *mut libc::c_void {
-    let key =  
     unsafe {
         std::ptr::copy_nonoverlapping(shellcode.as_ptr(), mem as *mut u8, shellcode.len());
-        mem
-    }
+        return mem;
+    };
 }
 
 fn exec(ptr: *mut libc::c_void) {
@@ -45,9 +44,9 @@ fn main() {
         eprintln!("Too few arguments");
         std::process::exit(1);
     }
-    let shellcode = read_shellcode(&args[1]);
-    let size = shellcode.len();
-    let mem = alloc_executable_memory(size);
+    let shellcode: Vec<u8> = read_shellcode(&args[1]);
+    let size: usize = shellcode.len();
+    let mem: *mut libc::c_void = alloc_executable_memory(size);
     exec(copy_to_mem(&shellcode, mem));
     free_mem(mem, size);
 }

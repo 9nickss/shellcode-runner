@@ -10,7 +10,7 @@ fn parse_key(key: &str) -> u8 {
         .expect("Invalid hex value in key") // 16 car hexadecimal (XOR)
 }
 
-fn xor_crypt(code: &mut Vec<u8>, key: u8) {
+fn xor_crypt(code: &mut Vec<u8>, key: u8){
     for byte in code.iter_mut() {
         *byte ^= key;
     }
@@ -28,14 +28,16 @@ fn check_args_key(args: &Vec<String>) -> u8 {
     }
 }
 
-fn save_crypted_code(filename: &str) {
-
+fn save_xor_code(filename: &str, code: &mut Vec<u8>) {
+    let crypted_file= format!("{filename}.xor");
+    fs::write(crypted_file, code)
+        .expect("Failed to write crypted shellcode");
 }
 
 fn main() {
     let args: Vec<String> = env::args().collect();
-    let key = check_args_key(&args);
+    let key: u8 = check_args_key(&args);
     let mut code: Vec<u8> = check_file(&args[1]);
-    code = xor_crypt(code, key);
-    save_crypted_code();
+    xor_crypt(&mut code, key);
+    save_xor_code(&args[1], &mut code);
 }
