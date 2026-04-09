@@ -36,7 +36,7 @@ A comprehensive shellcode execution and evasion framework demonstrating advanced
 shellcode-runner/
 ├── runner/
 │   ├── src/
-│   │   ├── main.rs           # Shellcode loader & executor
+│   │   ├── runner.rs           # Shellcode loader & executor
 │   │   ├── encryptor.rs      # XOR encryption & key handling
 │   │   ├── polymorphizer.rs  # Polymorphic code generation
 │   │   ├── injector.rs       # Process injection (ptrace)
