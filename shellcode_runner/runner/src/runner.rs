@@ -19,7 +19,7 @@ struct Args {
 }
 
 fn read_shellcode(path: &str, config: &Config) -> Vec<u8> {
-    config.log(&format!("Reading shellcode from: {} ...", path));
+    config.log(&format!("Reading shellcode from: {}...", path));
     fs::read(path).expect("Failed to read file")
 }
 
@@ -70,8 +70,8 @@ fn main() {
     config.log("Starting shellcode runner...");
     let mut shellcode: Vec<u8> = read_shellcode(&args.file, &config);
     if let Some(key_str) = args.decrypt {
-        config.log(&format!("Decrypting with key: {}...", key_str));
         config.key = crypt::parse_hex(&key_str).ok();
+        config.log(&format!("Decrypting with key: 0x{}...", key_str));
         if let Some(key) = config.key {
             crypt::xor_crypt(&mut shellcode, key);
             config.log(&format!("Decrypted with key 0x{:02X}", key));
