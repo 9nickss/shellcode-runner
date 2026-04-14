@@ -1,0 +1,8 @@
+[package]
+name = "lib"
+version.workspace = true
+edition.workspace = true
+
+[dependencies]
+libc = "0.2.185"
+nix = "0.31.2"

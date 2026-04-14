@@ -1,0 +1,13 @@
+[package]
+name = "encryptor"
+version.workspace = true
+edition.workspace = true
+
+[[bin]]
+name = "encryptor"
+path = "src/encryptor.rs"
+
+[dependencies]
+lib = { path = "../lib" }
+libc = "0.2.185"
+clap = { version = "4", features = ["derive"] }
