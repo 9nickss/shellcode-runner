@@ -34,20 +34,28 @@ A comprehensive shellcode execution and evasion framework demonstrating advanced
 
 ```
 shellcode-runner/
-├── runner/
-│   ├── src/
-│   │   ├── runner.rs         # Shellcode loader & executor
-│   │   ├── encryptor.rs      # XOR encryption & key handling
-│   │   ├── polymorphizer.rs  # Polymorphic code generation
-│   │   ├── injector.rs       # Process injection (ptrace)
-│   │   └── setup.rs          # Automated evasion setup
-│   ├── shellcodes/
-│   │   ├── bash.asm          # /bin/bash spawner
-│   │   ├── exit.asm          # Process exit
-│   │   └── write.asm         # Write to stdout
-│   └── Cargo.toml
+├── Cargo.toml                 # Workspace root
+├── lib/                       # Shared library
+│   ├── Cargo.toml
+│   └── src/
+│       ├── lib.rs           # Module exports
+│       ├── crypt.rs         # XOR encryption & parsing
+│       └── config.rs        # Configuration struct
+├── runner/                    # Shellcode executor binary
+│   ├── Cargo.toml
+│   └── src/
+│       └── runner.rs        # Main runner with decryption support
+├── encryptor/                 # XOR encryption binary
+│   ├── Cargo.toml
+│   └── src/
+│       └── encryptor.rs     # Encrypt shellcode with custom keys
 └── README.md
 ```
+
+### Workspace Architecture
+- **lib/** : Shared modules (crypt, config, and future polymorphizer, setup logic)
+- **runner/** : Main shellcode executor with decryption
+- **encryptor/** : Standalone encryption tool
 
 ---
 
@@ -56,7 +64,7 @@ shellcode-runner/
 ### Compiling Shellcode to .bin
 
 ```bash
-cd runner/shellcodes
+cd shellcodes
 
 # Assemble ASM to object file
 nasm -f elf64 bash.asm -o bash.o
@@ -68,20 +76,22 @@ objcopy -O binary bash.o bash.bin
 hexdump -C bash.bin
 ```
 
+### Build Everything
+
+```bash
+cargo build --release
+```
+
 ### Basic Execution
 
 ```bash
-cd runner
-cargo build --release
 ./target/release/runner shellcodes/bash.bin
 ```
 
 ### Encrypted Execution
 
 ```bash
-cd runner
-
-# Encrypt with XOR key (supports 0xAA or AA format)
+# Encrypt with XOR key (supports AA or 0xAA format)
 ./target/release/encryptor -x 0xAA shellcodes/exit.bin
 ./target/release/encryptor --xor FF shellcodes/bash.bin
 
@@ -94,16 +104,10 @@ cd runner
 - Encryptor: `-x AA`, `-x 0xAA`, `--xor FF` (hex format)
 - Runner: `-d 0xAA`, `--decrypt FF` (hex format with optional 0x prefix)
 
-### Process Injection
+### Process Injection (WIP)
 
 ```bash
 ./target/release/injector /bin/ls shellcodes/bash.bin
-```
-
-### Automated Evasion Setup
-
-```bash
-./target/release/setup
 ```
 
 ---
@@ -111,8 +115,19 @@ cd runner
 ## 🔧 Building
 
 ```bash
-cd runner
+# Compile entire workspace (lib + all binaries)
 cargo build --release
+
+# Or compile specific binaries
+cargo build --release -p runner
+cargo build --release -p encryptor
+```
+
+**Output binaries:**
+```bash
+./target/release/runner      # Shellcode executor
+./target/release/encryptor   # XOR encryption tool
+./target/release/injector    # Process injector (WIP)
 ```
 
 **Dependencies:**
