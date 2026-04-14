@@ -1,6 +1,6 @@
 use std::fs;
 use libc;
-use lib;
+use lib::crypt;
 use clap::{Parser};
 
 #[derive(Parser)]
@@ -52,7 +52,11 @@ fn free_mem(mem: *mut libc::c_void, size: usize) {
 
 fn main() {
     let args = Args::parse();
-    let shellcode: Vec<u8> = read_shellcode(&args.file);
+    let mut shellcode: Vec<u8> = read_shellcode(&args.file);
+    if let Some(key_str) = args.decrypt {
+        crypt::xor_crypt(&mut shellcode,
+            crypt::parse_hex(&key_str).expect("Bad key"));
+    }
     let size: usize = shellcode.len();
     let mem: *mut libc::c_void = alloc_executable_memory(size);
     exec(copy_to_mem(&shellcode, mem));
