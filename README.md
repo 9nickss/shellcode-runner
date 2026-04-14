@@ -85,7 +85,12 @@ cargo build --release
 ### Basic Execution
 
 ```bash
+# Simple execution
 ./target/release/runner shellcodes/bash.bin
+
+# With verbose logging
+./target/release/runner -v shellcodes/bash.bin
+./target/release/runner --verbose shellcodes/bash.bin
 ```
 
 ### Encrypted Execution
@@ -93,16 +98,28 @@ cargo build --release
 ```bash
 # Encrypt with XOR key (supports AA or 0xAA format)
 ./target/release/encryptor -x 0xAA shellcodes/exit.bin
-./target/release/encryptor --xor FF shellcodes/bash.bin
+./target/release/encryptor -x AA shellcodes/bash.bin
+./target/release/encryptor --xor FF shellcodes/write.bin
+
+# With verbose output
+./target/release/encryptor -x 0xAA shellcodes/exit.bin -v
+./target/release/encryptor --xor FF shellcodes/bash.bin --verbose
 
 # Execute encrypted shellcode (auto-decrypt with key)
 ./target/release/runner -d 0xAA shellcodes/exit.bin.xor
 ./target/release/runner --decrypt FF shellcodes/bash.bin.xor
+
+# Combined: verbose + decrypt
+./target/release/runner -v --decrypt 0xAA shellcodes/exit.bin.xor
 ```
 
-**Supported key formats:**
-- Encryptor: `-x AA`, `-x 0xAA`, `--xor FF` (hex format)
-- Runner: `-d 0xAA`, `--decrypt FF` (hex format with optional 0x prefix)
+**Runner flags:**
+- `-v, --verbose` : Enable verbose logging (memory addresses, syscalls, etc.)
+- `-d, --decrypt <KEY>` : Decrypt shellcode with XOR key (hex format: AA or 0xAA)
+
+**Encryptor flags:**
+- `-x, --xor <KEY>` : XOR key for encryption (hex format: AA or 0xAA, default: AA)
+- `-v, --verbose` : Enable verbose logging
 
 ### Process Injection (WIP)
 
