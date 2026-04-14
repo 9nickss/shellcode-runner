@@ -1,7 +1,18 @@
-use std::env;
 use std::fs;
 use libc;
-use src::crypt;
+use lib;
+use clap::{Parser};
+
+#[derive(Parser)]
+struct Args {
+    /// File to execute
+    file: String,
+
+    /// Choose key to decrypt
+    #[arg(short, long, value_name = "KEY")]
+    decrypt: Option<String>,
+}
+
 
 fn read_shellcode(path: &str) -> Vec<u8> {
     fs::read(path).expect("Failed to read file")
@@ -40,12 +51,8 @@ fn free_mem(mem: *mut libc::c_void, size: usize) {
 }
 
 fn main() {
-    let args: Vec<String> = env::args().collect();
-    if args.len() < 2 {
-        eprintln!("Too few arguments");
-        std::process::exit(1);
-    }
-    let shellcode: Vec<u8> = read_shellcode(&args[1]);
+    let args = Args::parse();
+    let shellcode: Vec<u8> = read_shellcode(&args.file);
     let size: usize = shellcode.len();
     let mem: *mut libc::c_void = alloc_executable_memory(size);
     exec(copy_to_mem(&shellcode, mem));
