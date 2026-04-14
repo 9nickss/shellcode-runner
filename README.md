@@ -79,9 +79,20 @@ cargo build --release
 ### Encrypted Execution
 
 ```bash
-./target/release/encryptor shellcodes/bash.bin 0xAA
-./target/release/runner shellcodes/bash.bin.encrypted
+cd runner
+
+# Encrypt with XOR key (supports 0xAA or AA format)
+./target/release/encryptor -x 0xAA shellcodes/exit.bin
+./target/release/encryptor --xor FF shellcodes/bash.bin
+
+# Execute encrypted shellcode (auto-decrypt with key)
+./target/release/runner -d 0xAA shellcodes/exit.bin.xor
+./target/release/runner --decrypt FF shellcodes/bash.bin.xor
 ```
+
+**Supported key formats:**
+- Encryptor: `-x AA`, `-x 0xAA`, `--xor FF` (hex format)
+- Runner: `-d 0xAA`, `--decrypt FF` (hex format with optional 0x prefix)
 
 ### Process Injection
 
@@ -106,8 +117,13 @@ cargo build --release
 
 **Dependencies:**
 - `nasm` - Assembler for x86-64 shellcode
-- `nix` - for ptrace
+- `binutils` - For objcopy utility
 - Rust 1.75+
+
+**Cargo dependencies:**
+- `libc` - C library bindings
+- `clap` - Command-line argument parsing with derive macros
+- `nix` - ptrace support (WIP)
 
 ---
 
