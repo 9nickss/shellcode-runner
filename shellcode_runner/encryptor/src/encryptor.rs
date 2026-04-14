@@ -8,11 +8,14 @@ struct Args {
     /// Binary to crypt
     file: String,
 
-    /// Choose XOR key to crypt, don't use 0x prefix, by default = 0xAA
+    /// Choose XOR key to crypt, default = 0xAA
     #[arg(short, long, value_name = "KEY", value_parser = crypt::parse_hex)]
     xor: Option<u8>,
-}
 
+    ///verbose mode
+    #[arg(short, long)]
+    verbose: bool,
+}
 
 fn check_file(file: &str) -> Vec<u8> {
     fs::read(file).expect("Failed to read file")
