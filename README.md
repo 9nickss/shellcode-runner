@@ -2,31 +2,29 @@
 
 ![Rust](https://img.shields.io/badge/Rust-1.75+-orange?style=flat-square&logo=rust)
 ![Platform](https://img.shields.io/badge/Platform-Linux%20x86__64-blue?style=flat-square)
-![Educational](https://img.shields.io/badge/Purpose-Educational%20Only-red?style=flat-square)
+![Status](https://img.shields.io/badge/Status-Active%20Development-blue?style=flat-square)
 
-> ⚠️ Strictly for educational purposes. Test only on machines you own in an isolated environment.
+A modular shellcode execution framework with encryption, obfuscation, and evasion techniques.
 
-## 🎯 Objectives
+## 🎯 Project Goals
 
-A comprehensive shellcode execution and evasion framework demonstrating advanced security concepts:
+### ✅ Current Implementation
+- **Dynamic Shellcode Execution** : Load and execute x86-64 shellcode from binary files
+- **XOR Encryption** : Encrypt/decrypt shellcode with configurable keys
+- **Verbose Logging** : Detailed output for memory addresses and execution flow
+- **Modular Architecture** : Separate binaries for runner, encryptor, and future tools
 
-### Core Features
-- **Dynamic Shellcode Execution** : Load and execute arbitrary x86-64 shellcode from binary files
-- **XOR Encryption** : Encrypt shellcode with configurable XOR keys
-- **Polymorphic Code Generation** : Mutate shellcode at each execution while maintaining semantic equivalence (WIP)
-- **Junk Code Injection** : Insert meaningless instructions to obfuscate code patterns (WIP)
-
-### Evasion Techniques (WIP)
-- **Fileless Execution** : Execute from `/proc/self/mem` or stack instead of `mmap` to avoid kernel monitoring
-- **Process Injection** : Inject shellcode into legitimate processes using `ptrace` (Linux), if it fails it will try to fork itself and inject into it's own child process
+### 🚧 In Progress / Planned
+- **AES-GCM Encryption** : Strong encryption for payload protection
+- **Polymorphic Code Generation** : Mutate shellcode at each execution
+- **Junk Code Injection** : Obfuscate code patterns with meaningless instructions
+- **Fileless Execution** : Execute from `/proc/self/mem` or stack instead of mmap
+- **Process Injection** : Inject via ptrace or self-fork techniques
 - **LD_PRELOAD Hijacking** : Load malicious shared libraries before system libraries
 - **PATH Manipulation** : Replace legitimate binaries with trojaned versions
-- **Cron Job Injection** : Automated persistence through scheduler-based execution
-- **Living off the Land** : Leverage existing system tools for payload delivery
-
-### Encryption & Obfuscation (WIP)
-- **AES-GCM-128 Encryption** : Strong encryption for payload protection
-- **Automatic Setup** : Single-binary deployment of entire evasion chain
+- **Cron Job Injection** : Automated persistence through scheduler
+- **Living off the Land** : Leverage existing system tools for execution
+- **Coordinator** : Pipeline to chain all operations together
 
 ---
 
@@ -59,73 +57,84 @@ shellcode-runner/
 
 ---
 
-## 🚀 Usage
+## 🚀 Quick Start
 
-### Compiling Shellcode to .bin
+### Compile Shellcodes
 
 ```bash
 cd shellcodes
-
-# Assemble ASM to object file
 nasm -f elf64 bash.asm -o bash.o
-
-# Extract binary from object file
 objcopy -O binary bash.o bash.bin
-
-# Verify shellcode
-hexdump -C bash.bin
 ```
 
-### Build Everything
+### Build Project
 
 ```bash
 cargo build --release
 ```
 
-### Basic Execution
+### Execute Shellcode
 
 ```bash
-# Simple execution
+# Direct execution
+./target/release/runner -v shellcodes/bash.bin
+
+# Encrypt first
+./target/release/encryptor -v -x AA shellcodes/bash.bin
+# Creates: bash.bin.xor and bash.bin.key
+
+# Decrypt and execute
+./target/release/runner -v shellcodes/bash.bin.xor
+# Auto-reads bash.bin.key for decryption
+```
+
+---
+
+## 📖 Usage Guide
+
+### Runner
+
+```bash
+# Execute without decryption
 ./target/release/runner shellcodes/bash.bin
 
-# With verbose logging
+# Verbose mode (detailed logging)
 ./target/release/runner -v shellcodes/bash.bin
-./target/release/runner --verbose shellcodes/bash.bin
+
+# Decrypt with auto-detected key (reads .key file)
+./target/release/runner -v shellcodes/bash.bin.xor
+
+# Force specific algorithm and key
+./target/release/runner -v --algo xor --key AA shellcodes/bash.bin.xor
+./target/release/runner --verbose --algo aes --key 0x0123456789ABCDEF shellcodes/bash.bin.aes
 ```
 
-### Encrypted Execution
+**Flags:**
+- `-v, --verbose` : Detailed logging (memory addresses, syscalls, decryption progress)
+- `--algo <ALGO>` : Encryption algorithm (xor, aes) - auto-detected from file extension if omitted
+- `--key <KEY>` : Encryption key - overrides .key file if provided
+
+### Encryptor
 
 ```bash
-# Encrypt with XOR key (supports AA or 0xAA format)
-./target/release/encryptor -x 0xAA shellcodes/exit.bin
+# Default XOR encryption (key=0xAA)
+./target/release/encryptor shellcodes/bash.bin
+
+# Custom XOR key
 ./target/release/encryptor -x AA shellcodes/bash.bin
-./target/release/encryptor --xor FF shellcodes/write.bin
+./target/release/encryptor --xor 0xFF shellcodes/bash.bin
 
-# With verbose output
-./target/release/encryptor -x 0xAA shellcodes/exit.bin -v
-./target/release/encryptor --xor FF shellcodes/bash.bin --verbose
-
-# Execute encrypted shellcode (auto-decrypt with key)
-./target/release/runner -d 0xAA shellcodes/exit.bin.xor
-./target/release/runner --decrypt FF shellcodes/bash.bin.xor
-
-# Combined: verbose + decrypt
-./target/release/runner -v --decrypt 0xAA shellcodes/exit.bin.xor
+# Verbose output
+./target/release/encryptor -v -x AA shellcodes/bash.bin
 ```
 
-**Runner flags:**
-- `-v, --verbose` : Enable verbose logging (memory addresses, syscalls, etc.)
-- `-d, --decrypt <KEY>` : Decrypt shellcode with XOR key (hex format: AA or 0xAA)
+**Flags:**
+- `-x, --xor <KEY>` : XOR key in hex (AA or 0xAA, default: AA)
+- `-v, --verbose` : Detailed logging
 
-**Encryptor flags:**
-- `-x, --xor <KEY>` : XOR key for encryption (hex format: AA or 0xAA, default: AA)
-- `-v, --verbose` : Enable verbose logging
-
-### Process Injection (WIP)
-
-```bash
-./target/release/injector /bin/ls shellcodes/bash.bin
-```
+**Output:**
+- `shellcode.bin.xor` - Encrypted shellcode
+- `shellcode.bin.key` - Key file for decryption
 
 ---
 
