@@ -1,16 +1,21 @@
 use std::fs;
-use lib::crypt;
+use lib::crypt::{create_cipher};
 use clap::{Parser};
 use lib::config::Config;
+use lib::crypt::Algo;
 
 #[derive(Parser)]
 struct Args {
     /// Binary to crypt
     file: String,
 
-    /// Choose XOR key to crypt, default = 0xAA
-    #[arg(short, long, value_name = "KEY", value_parser = crypt::parse_hex)]
-    xor: Option<u8>,
+    /// Choose algorithm used to crypt, by default: xor
+    #[arg(short, long, value_name = "ALGORITHM")]
+    algo: Option<Algo>,
+
+    /// Choose key used to crypt
+    #[arg(short, long, value_name = "KEY")]
+    key : Option<u8>,
 
     ///verbose mode
     #[arg(short, long)]
@@ -22,8 +27,11 @@ fn check_file(file: &str, config: &Config) -> Vec<u8> {
     fs::read(file).expect("Failed to read file")
 }
 
-fn save_xor_code(filename: &str, code: &mut Vec<u8>, config: &Config) {
-    let crypted_file= format!("{filename}.xor");
+fn save_crypted_file(filename: &str, code: &mut Vec<u8>, config: &Config, algo: &Algo) {
+    let crypted_file = match algo {
+        Algo::Xor => format!("{filename}.xor"),
+        Algo::Aes => format!("{filename}.aes"),
+    };
     config.log(&format!("Writing {} bytes to {}...", code.len(), crypted_file));
     fs::write(&crypted_file, code)
         .expect("Failed to write crypted shellcode");
@@ -33,11 +41,16 @@ fn save_xor_code(filename: &str, code: &mut Vec<u8>, config: &Config) {
 fn main() {
     let args = Args::parse();
     let config = Config::new(args.verbose, None);
-    let key: u8 = args.xor.unwrap_or(0xAA);
+    let algo = args.algo.unwrap_or(Algo::Xor);
+    let key = args.key.unwrap_or_else(|| match algo {
+        Algo::Xor => 0xAA,
+        Algo::Aes => todo!("default aes key"),
+    });
+    let cipher = create_cipher(&algo, key);
     let mut code: Vec<u8> = check_file(&args.file, &config);
     config.log(&format!("Encrypting with key 0x{:02X}...", key));
-    crypt::xor_crypt(&mut code, key);
+    cipher.encrypt(&mut code);
     config.log("Code encrypted!");
-    save_xor_code(&args.file, &mut code, &config);
+    save_crypted_file(&args.file, &mut code, &config, &algo);
     config.log("Done!");
 }
