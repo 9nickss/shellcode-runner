@@ -96,30 +96,43 @@ cargo build --release
 ### Encrypted Execution
 
 ```bash
-# Encrypt with XOR key (supports AA or 0xAA format)
-./target/release/encryptor -x 0xAA shellcodes/exit.bin
-./target/release/encryptor -x AA shellcodes/bash.bin
-./target/release/encryptor --xor FF shellcodes/write.bin
+# Encrypt with default algorithm (XOR) and default key (0xAA)
+./target/release/encryptor shellcodes/bash.bin
+
+# Specify algorithm
+./target/release/encryptor -a xor shellcodes/bash.bin
+./target/release/encryptor --algo aes shellcodes/bash.bin
+
+# Specify key (hex format: AA or 0xAA)
+./target/release/encryptor -k AA shellcodes/bash.bin
+./target/release/encryptor --key 0xFF shellcodes/bash.bin
+
+# Both algorithm and key
+./target/release/encryptor -a xor -k FF shellcodes/bash.bin
+./target/release/encryptor --algo aes --key 0x0123456789ABCDEF shellcodes/bash.bin
 
 # With verbose output
-./target/release/encryptor -x 0xAA shellcodes/exit.bin -v
-./target/release/encryptor --xor FF shellcodes/bash.bin --verbose
+./target/release/encryptor -v -a xor -k AA shellcodes/bash.bin
+./target/release/encryptor --verbose --algo xor --key 0xFF shellcodes/write.bin
 
 # Execute encrypted shellcode (auto-decrypt with key)
-./target/release/runner -d 0xAA shellcodes/exit.bin.xor
-./target/release/runner --decrypt FF shellcodes/bash.bin.xor
-
-# Combined: verbose + decrypt
-./target/release/runner -v --decrypt 0xAA shellcodes/exit.bin.xor
+./target/release/runner -v shellcodes/bash.bin.xor
+./target/release/runner --verbose shellcodes/bash.bin.aes
 ```
+
+**Encryptor flags:**
+- `-a, --algo <ALGORITHM>` : Algorithm (xor, aes) - default: xor
+- `-k, --key <KEY>` : Encryption key in hex (AA or 0xAA) - default: 0xAA for xor
+- `-v, --verbose` : Detailed logging
+
+**Output:**
+- `shellcode.bin.xor` - XOR encrypted shellcode
+- `shellcode.bin.aes` - AES encrypted shellcode
+- `shellcode.bin.key` - Key file for decryption
 
 **Runner flags:**
 - `-v, --verbose` : Enable verbose logging (memory addresses, syscalls, etc.)
-- `-d, --decrypt <KEY>` : Decrypt shellcode with XOR key (hex format: AA or 0xAA)
-
-**Encryptor flags:**
-- `-x, --xor <KEY>` : XOR key for encryption (hex format: AA or 0xAA, default: AA)
-- `-v, --verbose` : Enable verbose logging
+- `--decrypt <KEY>` : Decrypt shellcode with key (hex format: AA or 0xAA)
 
 ### Process Injection (WIP)
 
