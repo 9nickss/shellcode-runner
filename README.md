@@ -95,24 +95,43 @@ cargo build --release
 ### Runner
 
 ```bash
-# Execute without decryption
-./target/release/runner shellcodes/bash.bin
+# Encrypt with default algorithm (XOR) and default key (0xAA)
+./target/release/encryptor shellcodes/bash.bin
 
-# Verbose mode (detailed logging)
-./target/release/runner -v shellcodes/bash.bin
+# Specify algorithm
+./target/release/encryptor -a xor shellcodes/bash.bin
+./target/release/encryptor --algo aes shellcodes/bash.bin
 
-# Decrypt with auto-detected key (reads .key file)
+# Specify key (hex format: AA or 0xAA)
+./target/release/encryptor -k AA shellcodes/bash.bin
+./target/release/encryptor --key 0xFF shellcodes/bash.bin
+
+# Both algorithm and key
+./target/release/encryptor -a xor -k FF shellcodes/bash.bin
+./target/release/encryptor --algo aes --key 0x0123456789ABCDEF shellcodes/bash.bin
+
+# With verbose output
+./target/release/encryptor -v -a xor -k AA shellcodes/bash.bin
+./target/release/encryptor --verbose --algo xor --key 0xFF shellcodes/write.bin
+
+# Execute encrypted shellcode (auto-decrypt with key)
 ./target/release/runner -v shellcodes/bash.bin.xor
-
-# Force specific algorithm and key
-./target/release/runner -v --algo xor --key AA shellcodes/bash.bin.xor
-./target/release/runner --verbose --algo aes --key 0x0123456789ABCDEF shellcodes/bash.bin.aes
+./target/release/runner --verbose shellcodes/bash.bin.aes
 ```
 
-**Flags:**
-- `-v, --verbose` : Detailed logging (memory addresses, syscalls, decryption progress)
-- `--algo <ALGO>` : Encryption algorithm (xor, aes) - auto-detected from file extension if omitted
-- `--key <KEY>` : Encryption key - overrides .key file if provided
+**Encryptor flags:**
+- `-a, --algo <ALGORITHM>` : Algorithm (xor, aes) - default: xor
+- `-k, --key <KEY>` : Encryption key in hex (AA or 0xAA) - default: 0xAA for xor
+- `-v, --verbose` : Detailed logging
+
+**Output:**
+- `shellcode.bin.xor` - XOR encrypted shellcode
+- `shellcode.bin.aes` - AES encrypted shellcode
+- `shellcode.bin.key` - Key file for decryption
+
+**Runner flags:**
+- `-v, --verbose` : Enable verbose logging (memory addresses, syscalls, etc.)
+- `--decrypt <KEY>` : Decrypt shellcode with key (hex format: AA or 0xAA)
 
 ### Encryptor
 
