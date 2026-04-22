@@ -86,7 +86,7 @@ fn decrypt_shellcode(shellcode: &mut Vec<u8>, file: &str, algo: Option<Algo>, ke
         Key::Aes(_)  => config.log("Decrypting with AES-128-GCM..."),
     }
 
-    crypt::create_cipher(key).decrypt(shellcode);
+    crypt::create_cipher(&key).decrypt(shellcode);
 }
 
 fn run_shellcode(shellcode: &[u8], config: &Config) {

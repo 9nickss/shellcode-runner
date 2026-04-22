@@ -44,9 +44,9 @@ impl Cipher for Aes {
     fn encrypt(&self, data: &mut Vec<u8>) { /* aes */ }
     fn decrypt(&self, data: &mut Vec<u8>) { /* aes */ }
 }
-pub fn create_cipher(key: Key) -> Box<dyn Cipher> {
+pub fn create_cipher(key: &Key) -> Box<dyn Cipher> {
     match key {
-        Key::Xor(k) => Box::new(Xor { key: k }),
-        Key::Aes(k) => Box::new(Aes { key: k }),
+        Key::Xor(k) => Box::new(Xor { key: *k }),
+        Key::Aes(k) => Box::new(Aes { key: *k }),
     }
 }
