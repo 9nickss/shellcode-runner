@@ -3,6 +3,7 @@ use lib::crypt::{create_cipher};
 use clap::{Parser};
 use lib::config::Config;
 use lib::crypt::Algo;
+use lib::crypt::Key;
 
 #[derive(Parser)]
 struct Args {
@@ -15,7 +16,7 @@ struct Args {
 
     /// Choose key used to crypt
     #[arg(short, long, value_name = "KEY")]
-    key : Option<u8>,
+    key: Option<u8>,
 
     ///verbose mode
     #[arg(short, long)]
@@ -40,15 +41,18 @@ fn save_crypted_file(filename: &str, code: &mut Vec<u8>, config: &Config, algo: 
 
 fn main() {
     let args = Args::parse();
-    let config = Config::new(args.verbose, None);
+    let config = Config::new(args.verbose);
     let algo = args.algo.unwrap_or(Algo::Xor);
-    let key = args.key.unwrap_or_else(|| match algo {
-        Algo::Xor => 0xAA,
-        Algo::Aes => todo!("default aes key"),
-    });
-    let cipher = create_cipher(&algo, key);
+    let key = match &algo {
+        Algo::Xor => Key::Xor(args.key.unwrap_or(0xAA)),
+        Algo::Aes => todo!(),
+    };
+    match &key {
+        Key::Xor(k) => config.log(&format!("Encrypting with XOR key 0x{:02X}...", k)),
+        Key::Aes(_) => config.log("Encrypting with AES-128-GCM...",)
+    };
+    let cipher = create_cipher(key);
     let mut code: Vec<u8> = check_file(&args.file, &config);
-    config.log(&format!("Encrypting with key 0x{:02X}...", key));
     cipher.encrypt(&mut code);
     config.log("Code encrypted!");
     save_crypted_file(&args.file, &mut code, &config, &algo);

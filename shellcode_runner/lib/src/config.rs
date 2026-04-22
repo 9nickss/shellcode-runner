@@ -3,7 +3,7 @@ pub struct Config {
 }
 
 impl Config {
-    pub fn new(verbose: bool, key: Option<u8>) -> Self {
+    pub fn new(verbose: bool) -> Self {
         Config { verbose }
     }
     

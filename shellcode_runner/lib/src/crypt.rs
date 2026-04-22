@@ -6,6 +6,11 @@ pub enum Algo {
     Aes,
 }
 
+pub enum Key {
+    Xor(u8),
+    Aes([u8; 16]),
+}
+
 pub fn xor_crypt(code: &mut Vec<u8>, key: u8){
         for byte in code.iter_mut() {
             *byte ^= key;
@@ -39,9 +44,9 @@ impl Cipher for Aes {
     fn encrypt(&self, data: &mut Vec<u8>) { /* aes */ }
     fn decrypt(&self, data: &mut Vec<u8>) { /* aes */ }
 }
-pub fn create_cipher(algo: &Algo, key: u8) -> Box<dyn Cipher> {
-    match algo {
-        Algo::Xor => Box::new(Xor { key } ),
-        Algo::Aes => Box::new(Aes { key: [key; 16] } ),
+pub fn create_cipher(key: Key) -> Box<dyn Cipher> {
+    match key {
+        Key::Xor(k) => Box::new(Xor { key: k }),
+        Key::Aes(k) => Box::new(Aes { key: k }),
     }
 }
