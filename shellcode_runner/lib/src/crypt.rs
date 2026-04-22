@@ -1,5 +1,6 @@
 use clap;
 
+#[derive(Debug)]
 #[derive(clap::ValueEnum, Clone)]
 pub enum Algo {
     Xor,

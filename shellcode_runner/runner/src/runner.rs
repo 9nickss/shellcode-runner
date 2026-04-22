@@ -72,12 +72,14 @@ fn free_mem(mem: *mut libc::c_void, size: usize, config: &Config) {
 }
 
 fn decrypt_shellcode(shellcode: &mut Vec<u8>, file: &str, algo: Option<Algo>, key: Option<String>, config: &Config) {
+    config.log("Checking if file needs decrypting...");
     let needs_decrypt = algo.is_some()
         || file.ends_with(".xor")
         || file.ends_with(".aes");
 
     if !needs_decrypt { return; }
 
+    config.log("File needs to be decrypted");
     let (_, key) = key_parser::key_parser::resolve_encryption(file, algo, key, config)
         .unwrap_or_else(|e| { eprintln!("{}", e); std::process::exit(1); });
 

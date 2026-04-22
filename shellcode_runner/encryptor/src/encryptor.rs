@@ -37,10 +37,11 @@ fn save_crypted_file(filename: &str, code: &mut Vec<u8>, config: &Config, algo: 
     fs::write(&crypted_file, code)
         .expect("Failed to write crypted shellcode");
     config.log(&format!("Code written to {}", &crypted_file));
-    save_key_file(&crypted_file, key);
+    save_key_file(&crypted_file, &key, &config);
 }
 
-fn save_key_file(filename: &str, key: &Key) {
+fn save_key_file(filename: &str, key: &Key, config: &Config) {
+    config.log(&format!("Saving key to file {}.key...", filename));
     match &key {
         Key::Xor(k) => fs::write(format!("{}.key", filename), format!("{:02X}", k))
             .expect("Failed to write key file"),
@@ -48,6 +49,7 @@ fn save_key_file(filename: &str, key: &Key) {
             k.iter().map(|b| format!("{:02X}", b)).collect::<String>())
             .expect("Failed to write key file"),
     }
+    config.log("Key saved!");
 }
 
 fn main() {
