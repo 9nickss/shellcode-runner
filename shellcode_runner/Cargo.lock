@@ -194,6 +194,7 @@ dependencies = [
 name = "encryptor"
 version = "0.1.0"
 dependencies = [
+ "aes-gcm",
  "clap",
  "lib",
  "libc",

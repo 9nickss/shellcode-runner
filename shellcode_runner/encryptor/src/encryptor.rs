@@ -4,7 +4,11 @@ use clap::{Parser};
 use lib::config::Config;
 use lib::crypt::Algo;
 use lib::crypt::Key;
-
+use aes_gcm::{
+    aead::OsRng,
+    aead::rand_core::RngCore,
+};
+use lib::crypt;
 #[derive(Parser)]
 struct Args {
     /// Binary to crypt
@@ -61,12 +65,23 @@ fn main() {
         .map(|k| lib::crypt::parse_hex(&k)
             .unwrap_or_else(|e| { eprintln!("{}", e); std::process::exit(1); }))
         .unwrap_or(0xAA)),
-        Algo::Aes => todo!(),
+
+        Algo::Aes => match args.key {
+            Some(k) => Key::Aes(crypt::parse_hex_bytes(&k)
+                .unwrap_or_else(|e| { eprintln!("{}", e); std::process::exit(1); })),
+            None => {
+                let mut key_bytes = [0u8; 16];
+                OsRng.fill_bytes(&mut key_bytes);
+                Key::Aes(key_bytes)
+            }
+        },
     };
+
     match &key {
         Key::Xor(k) => config.log(&format!("Encrypting with XOR key 0x{:02X}...", k)),
         Key::Aes(_) => config.log("Encrypting with AES-128-GCM...",)
     };
+
     let cipher = create_cipher(&key);
     let mut code: Vec<u8> = check_file(&args.file, &config);
     cipher.encrypt(&mut code);

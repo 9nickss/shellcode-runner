@@ -7,6 +7,7 @@ pub mod key_parser {
     use lib::crypt::Key;
     use lib::crypt::parse_hex;
     use std::fs;
+    use lib::crypt;
 
     fn get_extension(filename: &str) -> Option<&str> {
         Path::new(filename)
@@ -23,7 +24,7 @@ pub mod key_parser {
         config.log("Key loaded from file");
         match algo {
             Algo::Xor => parse_hex(&content).map(Key::Xor),
-            Algo::Aes => todo!(),
+            Algo::Aes => crypt::parse_hex_bytes(&content).map(Key::Aes),
         }
     }
 
@@ -51,13 +52,13 @@ pub fn resolve_encryption(file: &str, algo_override: Option<Algo>,
             config.log("Using key override from args...");
             match &used_algo {
                 Algo::Xor => Key::Xor(parse_hex(&k)?),
-                Algo::Aes => todo!(),
+                Algo::Aes => crypt::parse_hex_bytes(&k).map(Key::Aes)?,
             }
         },
         None => parse_key(file, &used_algo, &config)?
     };
     match &used_key {
-        Key::Xor(k) => config.log(&format!("Key resolved: 0x{:02X}", k)), // ← ici
+        Key::Xor(k) => config.log(&format!("Key resolved: 0x{:02X}", k)),
         Key::Aes(_) => config.log("Key resolved: AES-128"),
     }
     Ok((used_algo, used_key))

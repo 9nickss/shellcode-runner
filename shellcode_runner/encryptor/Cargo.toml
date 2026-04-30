@@ -11,3 +11,4 @@ path = "src/encryptor.rs"
 lib = { path = "../lib" }
 libc = "0.2.185"
 clap = { version = "4", features = ["derive"] }
+aes-gcm = "0.10.3"
