@@ -1,0 +1,12 @@
+[package]
+name = "pipeline"
+version.workspace = true
+edition.workspace = true
+
+[[bin]]
+name = "pipeline"
+path = "src/pipeline.rs"
+
+[dependencies]
+clap = { version = "4", features = ["derive"] }
+lib = { path = "../lib" }

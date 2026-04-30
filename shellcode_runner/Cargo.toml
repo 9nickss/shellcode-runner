@@ -1,5 +1,5 @@
 [workspace]
-members = ["encryptor", "runner", "lib"]
+members = ["encryptor", "runner", "lib", "pipeline"]
 resolver = "2"
 
 [workspace.package]
