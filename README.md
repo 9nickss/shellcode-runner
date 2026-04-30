@@ -11,11 +11,12 @@ A modular shellcode execution framework with encryption, obfuscation, and evasio
 ### ✅ Current Implementation
 - **Dynamic Shellcode Execution** : Load and execute x86-64 shellcode from binary files
 - **XOR Encryption** : Encrypt/decrypt shellcode with configurable keys
+- **AES-128-GCM Encryption** : Strong authenticated encryption with random nonces
+- **Automatic Key Management** : Load encryption keys from .key files automatically
 - **Verbose Logging** : Detailed output for memory addresses and execution flow
-- **Modular Architecture** : Separate binaries for runner, encryptor, and future tools
+- **Modular Architecture** : Separate binaries for runner and encryptor with shared lib
 
 ### 🚧 In Progress / Planned
-- **AES-GCM Encryption** : Strong encryption for payload protection
 - **Polymorphic Code Generation** : Mutate shellcode at each execution
 - **Junk Code Injection** : Obfuscate code patterns with meaningless instructions
 - **Fileless Execution** : Execute from `/proc/self/mem` or stack instead of mmap
@@ -63,8 +64,8 @@ shellcode-runner/
 
 ```bash
 cd shellcodes
-nasm -f elf64 bash.asm -o bash.o
-objcopy -O binary bash.o bash.bin
+nasm -f elf64 write.asm -o write.o
+objcopy -O binary write.o write.bin
 ```
 
 ### Build Project
@@ -76,84 +77,98 @@ cargo build --release
 ### Execute Shellcode
 
 ```bash
-# Direct execution
-./target/release/runner -v shellcodes/bash.bin
+# Direct execution (unencrypted)
+./target/release/runner -v shellcodes/write.bin
 
-# Encrypt first
-./target/release/encryptor -v -x AA shellcodes/bash.bin
-# Creates: bash.bin.xor and bash.bin.key
+# Encrypt with XOR (default key 0xAA)
+./target/release/encryptor -v shellcodes/write.bin
+./target/release/runner -v shellcodes/write.bin.xor
 
-# Decrypt and execute
-./target/release/runner -v shellcodes/bash.bin.xor
-# Auto-reads bash.bin.key for decryption
+# Encrypt with AES-128-GCM (random key generated)
+./target/release/encryptor -v -a aes shellcodes/write.bin
+./target/release/runner -v shellcodes/write.bin.aes
+
+# Encrypt with custom XOR key
+./target/release/encryptor -v -k FF shellcodes/write.bin
+./target/release/runner -v shellcodes/write.bin.xor
+
+# Encrypt with custom AES key
+./target/release/encryptor -v -a aes -k 0123456789ABCDEF0123456789ABCDEF shellcodes/write.bin
+./target/release/runner -v shellcodes/write.bin.aes
 ```
 
 ---
 
 ## 📖 Usage Guide
 
-### Runner
-
-```bash
-# Encrypt with default algorithm (XOR) and default key (0xAA)
-./target/release/encryptor shellcodes/bash.bin
-
-# Specify algorithm
-./target/release/encryptor -a xor shellcodes/bash.bin
-./target/release/encryptor --algo aes shellcodes/bash.bin
-
-# Specify key (hex format: AA or 0xAA)
-./target/release/encryptor -k AA shellcodes/bash.bin
-./target/release/encryptor --key 0xFF shellcodes/bash.bin
-
-# Both algorithm and key
-./target/release/encryptor -a xor -k FF shellcodes/bash.bin
-./target/release/encryptor --algo aes --key 0x0123456789ABCDEF shellcodes/bash.bin
-
-# With verbose output
-./target/release/encryptor -v -a xor -k AA shellcodes/bash.bin
-./target/release/encryptor --verbose --algo xor --key 0xFF shellcodes/write.bin
-
-# Execute encrypted shellcode (auto-decrypt with key)
-./target/release/runner -v shellcodes/bash.bin.xor
-./target/release/runner --verbose shellcodes/bash.bin.aes
-```
-
-**Encryptor flags:**
-- `-a, --algo <ALGORITHM>` : Algorithm (xor, aes) - default: xor
-- `-k, --key <KEY>` : Encryption key in hex (AA or 0xAA) - default: 0xAA for xor
-- `-v, --verbose` : Detailed logging
-
-**Output:**
-- `shellcode.bin.xor` - XOR encrypted shellcode
-- `shellcode.bin.aes` - AES encrypted shellcode
-- `shellcode.bin.key` - Key file for decryption
-
-**Runner flags:**
-- `-v, --verbose` : Enable verbose logging (memory addresses, syscalls, etc.)
-- `--decrypt <KEY>` : Decrypt shellcode with key (hex format: AA or 0xAA)
-
 ### Encryptor
 
+Encrypt shellcode with XOR or AES-128-GCM algorithms.
+
 ```bash
-# Default XOR encryption (key=0xAA)
-./target/release/encryptor shellcodes/bash.bin
+# Default: XOR encryption with key 0xAA
+./target/release/encryptor shellcodes/write.bin
+# Outputs: write.bin.xor, write.bin.xor.key
 
-# Custom XOR key
-./target/release/encryptor -x AA shellcodes/bash.bin
-./target/release/encryptor --xor 0xFF shellcodes/bash.bin
+# XOR with custom key
+./target/release/encryptor -k FF shellcodes/write.bin
+./target/release/encryptor --key 0xFF shellcodes/write.bin
 
-# Verbose output
-./target/release/encryptor -v -x AA shellcodes/bash.bin
+# AES-128-GCM with random key (generated automatically)
+./target/release/encryptor -a aes shellcodes/write.bin
+# Outputs: write.bin.aes, write.bin.aes.key
+
+# AES with custom key (32 hex chars = 16 bytes)
+./target/release/encryptor --algo aes --key 0123456789ABCDEF0123456789ABCDEF shellcodes/write.bin
+
+# Verbose mode with logging
+./target/release/encryptor -v -a aes -k 0123456789ABCDEF0123456789ABCDEF shellcodes/write.bin
 ```
 
-**Flags:**
-- `-x, --xor <KEY>` : XOR key in hex (AA or 0xAA, default: AA)
-- `-v, --verbose` : Detailed logging
+**Encryptor Flags:**
+- `-a, --algo <ALGORITHM>` : Algorithm to use (`xor` or `aes`) - Default: `xor`
+- `-k, --key <KEY>` : Encryption key in hex format
+  - XOR: 2 hex chars (e.g., `AA` or `0xFF`)
+  - AES: 32 hex chars (e.g., `0123456789ABCDEF0123456789ABCDEF`)
+  - Default: `0xAA` for XOR, random for AES
+- `-v, --verbose` : Enable verbose logging
 
-**Output:**
-- `shellcode.bin.xor` - Encrypted shellcode
-- `shellcode.bin.key` - Key file for decryption
+**Output Files:**
+- `shellcode.bin.xor` - XOR encrypted shellcode
+- `shellcode.bin.aes` - AES encrypted shellcode  
+- `shellcode.bin.xor.key` - Key file (loaded automatically by runner)
+- `shellcode.bin.aes.key` - Key file (loaded automatically by runner)
+
+### Runner
+
+Execute shellcode with automatic decryption support.
+
+```bash
+# Execute raw shellcode (no decryption)
+./target/release/runner shellcodes/write.bin
+
+# Execute XOR encrypted shellcode (auto-reads write.bin.xor.key)
+./target/release/runner shellcodes/write.bin.xor
+
+# Execute AES encrypted shellcode (auto-reads write.bin.aes.key)
+./target/release/runner shellcodes/write.bin.aes
+
+# Override encryption key via CLI
+./target/release/runner -k FF shellcodes/write.bin.xor
+./target/release/runner --key 0123456789ABCDEF0123456789ABCDEF shellcodes/write.bin.aes
+
+# Override algorithm
+./target/release/runner -a xor shellcodes/write.bin.xor
+
+# Verbose logging
+./target/release/runner -v shellcodes/write.bin.xor
+./target/release/runner --verbose -a aes shellcodes/write.bin.aes
+```
+
+**Runner Flags:**
+- `-a, --algo <ALGORITHM>` : Override detected algorithm (`xor` or `aes`)
+- `-k, --key <KEY>` : Override key from file (same format as encryptor)
+- `-v, --verbose` : Enable verbose logging with memory addresses
 
 ---
 
