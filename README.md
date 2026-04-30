@@ -14,7 +14,8 @@ A modular shellcode execution framework with encryption, obfuscation, and evasio
 - **AES-128-GCM Encryption** : Strong authenticated encryption with random nonces
 - **Automatic Key Management** : Load encryption keys from .key files automatically
 - **Verbose Logging** : Detailed output for memory addresses and execution flow
-- **Modular Architecture** : Separate binaries for runner and encryptor with shared lib
+- **Pipeline Tool** : Chain encryption and execution in a single command
+- **Modular Architecture** : Separate binaries for runner, encryptor, and pipeline with shared lib
 
 ### 🚧 In Progress / Planned
 - **Polymorphic Code Generation** : Mutate shellcode at each execution
@@ -25,7 +26,6 @@ A modular shellcode execution framework with encryption, obfuscation, and evasio
 - **PATH Manipulation** : Replace legitimate binaries with trojaned versions
 - **Cron Job Injection** : Automated persistence through scheduler
 - **Living off the Land** : Leverage existing system tools for execution
-- **Coordinator** : Pipeline to chain all operations together
 
 ---
 
@@ -38,23 +38,29 @@ shellcode-runner/
 │   ├── Cargo.toml
 │   └── src/
 │       ├── lib.rs           # Module exports
-│       ├── crypt.rs         # XOR encryption & parsing
+│       ├── crypt.rs         # XOR & AES encryption
 │       └── config.rs        # Configuration struct
 ├── runner/                    # Shellcode executor binary
 │   ├── Cargo.toml
 │   └── src/
-│       └── runner.rs        # Main runner with decryption support
-├── encryptor/                 # XOR encryption binary
+│       ├── runner.rs        # Main runner with decryption
+│       └── key_parser.rs    # Key resolution logic
+├── encryptor/                 # Encryption binary
 │   ├── Cargo.toml
 │   └── src/
-│       └── encryptor.rs     # Encrypt shellcode with custom keys
+│       └── encryptor.rs     # Encrypt shellcode (XOR/AES)
+├── pipeline/                  # Combined encryption + execution
+│   ├── Cargo.toml
+│   └── src/
+│       └── pipeline.rs      # Chain encryptor → runner
 └── README.md
 ```
 
 ### Workspace Architecture
-- **lib/** : Shared modules (crypt, config, and future polymorphizer, setup logic)
-- **runner/** : Main shellcode executor with decryption
-- **encryptor/** : Standalone encryption tool
+- **lib/** : Shared modules (crypt, config, utilities)
+- **runner/** : Main shellcode executor with automatic decryption
+- **encryptor/** : Encryption tool (XOR & AES-128-GCM)
+- **pipeline/** : Convenience tool to encrypt and execute in one command
 
 ---
 
@@ -80,20 +86,17 @@ cargo build --release
 # Direct execution (unencrypted)
 ./target/release/runner -v shellcodes/write.bin
 
-# Encrypt with XOR (default key 0xAA)
+# Using Pipeline (encrypt + execute in one command)
+./target/release/pipeline -v shellcodes/write.bin              # XOR with default key
+./target/release/pipeline -v -a aes shellcodes/write.bin       # AES with random key
+./target/release/pipeline -v -k FF shellcodes/write.bin        # XOR with custom key
+./target/release/pipeline -v -a aes -k 0123456789ABCDEF0123456789ABCDEF shellcodes/write.bin
+
+# Manual encryption + execution (separate steps)
 ./target/release/encryptor -v shellcodes/write.bin
 ./target/release/runner -v shellcodes/write.bin.xor
 
-# Encrypt with AES-128-GCM (random key generated)
 ./target/release/encryptor -v -a aes shellcodes/write.bin
-./target/release/runner -v shellcodes/write.bin.aes
-
-# Encrypt with custom XOR key
-./target/release/encryptor -v -k FF shellcodes/write.bin
-./target/release/runner -v shellcodes/write.bin.xor
-
-# Encrypt with custom AES key
-./target/release/encryptor -v -a aes -k 0123456789ABCDEF0123456789ABCDEF shellcodes/write.bin
 ./target/release/runner -v shellcodes/write.bin.aes
 ```
 
@@ -170,6 +173,40 @@ Execute shellcode with automatic decryption support.
 - `-k, --key <KEY>` : Override key from file (same format as encryptor)
 - `-v, --verbose` : Enable verbose logging with memory addresses
 
+### Pipeline
+
+Encrypt shellcode and execute it in a single command.
+
+```bash
+# Default: XOR encryption with key 0xAA, then execute
+./target/release/pipeline shellcodes/write.bin
+
+# With verbose logging
+./target/release/pipeline -v shellcodes/write.bin
+
+# AES encryption with random key, then execute
+./target/release/pipeline -a aes shellcodes/write.bin
+
+# Custom XOR key
+./target/release/pipeline -k FF shellcodes/write.bin
+
+# Custom AES key
+./target/release/pipeline -a aes -k 0123456789ABCDEF0123456789ABCDEF shellcodes/write.bin
+
+# Verbose with both options
+./target/release/pipeline -v -a aes -k 0123456789ABCDEF0123456789ABCDEF shellcodes/write.bin
+```
+
+**Pipeline Flags:**
+- `-a, --algo <ALGORITHM>` : Encryption algorithm (`xor` or `aes`) - Default: `xor`
+- `-k, --key <KEY>` : Encryption key in hex format - Default: `0xAA` for XOR, random for AES
+- `-v, --verbose` : Enable verbose logging for all operations
+
+**Behavior:**
+1. Encrypts the shellcode using the specified algorithm and key
+2. Automatically executes the encrypted shellcode
+3. Useful for automated workflows and testing
+
 ---
 
 ## 🔧 Building
@@ -181,13 +218,14 @@ cargo build --release
 # Or compile specific binaries
 cargo build --release -p runner
 cargo build --release -p encryptor
+cargo build --release -p pipeline
 ```
 
 **Output binaries:**
 ```bash
 ./target/release/runner      # Shellcode executor
-./target/release/encryptor   # XOR encryption tool
-./target/release/injector    # Process injector (WIP)
+./target/release/encryptor   # Encryption tool (XOR & AES)
+./target/release/pipeline    # Encrypt and execute in one command
 ```
 
 **Dependencies:**
@@ -196,9 +234,10 @@ cargo build --release -p encryptor
 - Rust 1.75+
 
 **Cargo dependencies:**
-- `libc` - C library bindings
+- `libc` - C library bindings (syscalls, mmap, etc.)
 - `clap` - Command-line argument parsing with derive macros
-- `nix` - ptrace support (WIP)
+- `aes-gcm` - AES-128-GCM encryption with authenticated encryption
+- `nix` - ptrace and syscall support (for future features)
 
 ---
 
