@@ -59,7 +59,7 @@ pub fn resolve_encryption(file: &str, algo_override: Option<Algo>,
     };
     match &used_key {
         Key::Xor(k) => config.log(&format!("Key resolved: 0x{:02X}", k)),
-        Key::Aes(_) => config.log("Key resolved: AES-128"),
+        Key::Aes(k) => config.log(&format!("Key resolved: AES-128 [{:02X}{:02X}...{:02X}]", k[0], k[1], k[15])),
     }
     Ok((used_algo, used_key))
 }
