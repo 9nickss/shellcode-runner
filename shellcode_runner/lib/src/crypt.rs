@@ -104,15 +104,20 @@ mod tests {
         xor_crypt(&mut data, 0xAA);
 
         assert_eq!(data, original);
+    
+        xor_crypt(&mut data, 0x00);
+        assert_eq!(data, original);
     }
 
     #[test]
     fn test_parse_hex_returns_correct_byte() {
         assert_eq!(0xAA, parse_hex("AA").unwrap());
+        assert_eq!(0xAA, parse_hex("0xAA").unwrap());
     }
 
     #[test]
     fn test_parse_hex_returns_error_on_invalid_input() {
         assert!(parse_hex("ZZ").is_err());
+        assert!(parse_hex("").is_err());
     }
 }
