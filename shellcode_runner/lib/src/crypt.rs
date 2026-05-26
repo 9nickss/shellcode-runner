@@ -90,3 +90,29 @@ pub fn create_cipher(key: &Key) -> Box<dyn Cipher> {
         Key::Aes(k) => Box::new(Aes { key: *k }),
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_xor_crypt_restores_original_data() {
+        let original = vec![0x41, 0x42, 0x43];
+        let mut data = original.clone();
+
+        xor_crypt(&mut data, 0xAA);
+        xor_crypt(&mut data, 0xAA);
+
+        assert_eq!(data, original);
+    }
+
+    #[test]
+    fn test_parse_hex_returns_correct_byte() {
+        assert_eq!(0xAA, parse_hex("AA").unwrap());
+    }
+
+    #[test]
+    fn test_parse_hex_returns_error_on_invalid_input() {
+        assert!(parse_hex("ZZ").is_err());
+    }
+}
