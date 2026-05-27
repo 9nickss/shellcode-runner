@@ -18,9 +18,12 @@ A modular shellcode execution framework with encryption, obfuscation, and evasio
 - **Modular Architecture** : Separate binaries for runner, encryptor, and pipeline with shared lib
 
 ### 🚧 In Progress / Planned
+- **Fileless Execution (In Progress)** : Multiple strategies for executing shellcode without disk traces:
+  - **Approach 1: memfd + mmap** : Load shellcode into anonymous file descriptor, mmap it with rwx permissions, then execute. Shellcode can return control to caller. Slightly visible in `/proc/[pid]/maps` during execution
+  - **Approach 2: memfd + execveat** : Load shellcode into anonymous file descriptor, execute directly via `execveat()` with `AT_EMPTY_PATH` flag. True fileless—completely invisible in maps. Process replacement (cannot return)
+  - **Runner supports both modes** : Use the appropriate execution method based on shellcode requirements (return vs. process replacement)
 - **Polymorphic Code Generation** : Mutate shellcode at each execution
 - **Junk Code Injection** : Obfuscate code patterns with meaningless instructions
-- **Fileless Execution** : Execute from `/proc/self/mem` or stack instead of mmap
 - **Process Injection** : Inject via ptrace or self-fork techniques
 - **LD_PRELOAD Hijacking** : Load malicious shared libraries before system libraries
 - **PATH Manipulation** : Replace legitimate binaries with trojaned versions
@@ -34,6 +37,7 @@ A modular shellcode execution framework with encryption, obfuscation, and evasio
 ```
 shellcode-runner/
 ├── Cargo.toml                 # Workspace root
+├── Makefile                   # Build automation
 ├── lib/                       # Shared library
 │   ├── Cargo.toml
 │   └── src/
@@ -76,6 +80,31 @@ objcopy -O binary write.o write.bin
 
 ### Build Project
 
+You can build with **Makefile** (recommended) or directly with cargo:
+
+#### Using Makefile
+```bash
+cd shellcode_runner
+
+# Build all binaries (runner, encryptor, pipeline)
+make all
+
+# Build specific binary
+make runner
+make encryptor
+make pipeline
+
+# Clean build artifacts
+make clean
+
+# Full clean (remove release binaries)
+make fclean
+
+# Full rebuild
+make re
+```
+
+#### Using Cargo
 ```bash
 cargo build --release
 ```
@@ -99,6 +128,38 @@ cargo build --release
 ./target/release/encryptor -v -a aes shellcodes/write.bin
 ./target/release/runner -v shellcodes/write.bin.aes
 ```
+
+### Fileless Execution
+
+The runner supports two fileless execution strategies via `memfd_create` (Linux 3.17+):
+
+#### Strategy 1: memfd + mmap (flexible)
+```bash
+# Shellcode loaded into anonymous in-memory file descriptor
+# Mapped into executable memory with mmap, then executed
+./target/release/runner --fileless-mmap shellcodes/write.bin
+./target/release/runner -v --fileless-mmap shellcodes/write.bin.xor
+```
+**Use when:**
+- Shellcode needs to return control to caller
+- Multiple operations required from same binary
+- Fine-grained memory control needed
+
+**Trade-off:** Slightly visible in `/proc/[pid]/maps` during execution
+
+#### Strategy 2: memfd + execveat (true fileless)
+```bash
+# Shellcode loaded into anonymous in-memory file descriptor
+# Executed directly with execveat, replacing the current process
+./target/release/runner --fileless-execveat shellcodes/write.bin
+./target/release/runner -v --fileless-execveat shellcodes/write.bin.xor
+```
+**Use when:**
+- Shellcode is final (spawn shell, replace process)
+- Minimal detection footprint critical
+- Process replacement acceptable
+
+**Trade-off:** No return possible (process is replaced), Linux 3.19+ required
 
 ---
 
