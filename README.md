@@ -41,6 +41,7 @@ shellcode-runner/
 │   └── src/
 │       ├── lib.rs           # Module exports
 │       ├── crypt.rs         # XOR & AES encryption
+        ├── fileless.rs      # Fileless execution
 │       └── config.rs        # Configuration struct
 ├── runner/                    # Shellcode executor binary
 │   ├── Cargo.toml
