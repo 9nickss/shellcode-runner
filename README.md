@@ -16,12 +16,10 @@ A modular shellcode execution framework with encryption, obfuscation, and evasio
 - **Verbose Logging** : Detailed output for memory addresses and execution flow
 - **Pipeline Tool** : Chain encryption and execution in a single command
 - **Modular Architecture** : Separate binaries for runner, encryptor, and pipeline with shared lib
+- **Fileless Execution (memfd + mmap)** : Load shellcode into anonymous in-memory file descriptor, mmap with rwx, execute with return capability. Slightly visible in `/proc/[pid]/maps`
 
 ### 🚧 In Progress / Planned
-- **Fileless Execution (In Progress)** : Multiple strategies for executing shellcode without disk traces:
-  - **Approach 1: memfd + mmap** : Load shellcode into anonymous file descriptor, mmap it with rwx permissions, then execute. Shellcode can return control to caller. Slightly visible in `/proc/[pid]/maps` during execution
-  - **Approach 2: memfd + execveat** : Load shellcode into anonymous file descriptor, execute directly via `execveat()` with `AT_EMPTY_PATH` flag. True fileless—completely invisible in maps. Process replacement (cannot return)
-  - **Runner supports both modes** : Use the appropriate execution method based on shellcode requirements (return vs. process replacement)
+- **Fileless Execution (memfd + execveat)** : Execute directly from anonymous fd via `execveat()`. True fileless—completely invisible in maps. Process replacement only (no return)
 - **Polymorphic Code Generation** : Mutate shellcode at each execution
 - **Junk Code Injection** : Obfuscate code patterns with meaningless instructions
 - **Process Injection** : Inject via ptrace or self-fork techniques
@@ -131,27 +129,43 @@ cargo build --release
 
 ### Fileless Execution
 
-The runner supports two fileless execution strategies via `memfd_create` (Linux 3.17+):
+The runner supports fileless execution strategies via `memfd_create` (Linux 3.17+):
 
-#### Strategy 1: memfd + mmap (flexible)
+#### Strategy 1: memfd + mmap (implemented ✅)
+Load shellcode into anonymous in-memory file descriptor, map it with rwx permissions, then execute.
+
 ```bash
-# Shellcode loaded into anonymous in-memory file descriptor
-# Mapped into executable memory with mmap, then executed
+# Direct runner usage
 ./target/release/runner --fileless-mmap shellcodes/write.bin
 ./target/release/runner -v --fileless-mmap shellcodes/write.bin.xor
+./target/release/runner -v --fileless-mmap -a aes shellcodes/write.bin.aes
+
+# Via pipeline (encrypt + fileless execution)
+./target/release/pipeline --fileless-mmap shellcodes/write.bin
+./target/release/pipeline -v --fileless-mmap shellcodes/write.bin
+./target/release/pipeline -v -a aes --fileless-mmap shellcodes/write.bin
+./target/release/pipeline -v -a aes -k 0123456789ABCDEF0123456789ABCDEF --fileless-mmap shellcodes/write.bin
 ```
-**Use when:**
-- Shellcode needs to return control to caller
-- Multiple operations required from same binary
-- Fine-grained memory control needed
 
-**Trade-off:** Slightly visible in `/proc/[pid]/maps` during execution
+**Characteristics:**
+- ✅ Shellcode can return control to caller
+- ✅ No disk I/O for execution (encrypted source read from disk only)
+- ⚠️ Slightly visible in `/proc/[pid]/maps` during execution
+- ✅ Works with both XOR and AES encryption
 
-#### Strategy 2: memfd + execveat (true fileless)
+#### Strategy 2: memfd + execveat (coming soon 🚧)
+Execute directly from anonymous fd via `execveat()`. True fileless with complete invisibility in maps.
+
 ```bash
-# Shellcode loaded into anonymous in-memory file descriptor
-# Executed directly with execveat, replacing the current process
+# Planned usage:
 ./target/release/runner --fileless-execveat shellcodes/write.bin
+./target/release/pipeline --fileless-execveat shellcodes/write.bin
+```
+
+**Characteristics:**
+- ✅ True fileless—completely invisible in `/proc/[pid]/maps`
+- ⚠️ Process replacement (no return possible)
+- ✅ Requires Linux 3.19+
 ./target/release/runner -v --fileless-execveat shellcodes/write.bin.xor
 ```
 **Use when:**
@@ -267,6 +281,36 @@ Encrypt shellcode and execute it in a single command.
 1. Encrypts the shellcode using the specified algorithm and key
 2. Automatically executes the encrypted shellcode
 3. Useful for automated workflows and testing
+
+---
+
+## 🧪 Testing
+
+### Unit Tests
+Test the fileless execution module:
+
+```bash
+# Run all fileless tests
+cargo test --lib fileless
+
+# Run specific test
+cargo test --lib fileless::tests::test_create_memfd_success
+
+# Run with output
+cargo test --lib fileless -- --nocapture
+
+# Run all lib tests
+cargo test --lib
+```
+
+**Test Coverage:**
+- ✅ `test_create_memfd_success` : Verify memfd_create creates valid fd
+- ✅ `test_write_to_memfd_success` : Write and verify shellcode persistence
+- ✅ `test_write_to_memfd_partial_write` : Handle large payloads (1MB)
+- ✅ `test_map_memfd_executable_success` : Map with rwx permissions and verify r/w
+- ✅ `test_map_memfd_executable_zero_size` : Error handling for invalid sizes
+- ✅ `test_memfd_isolation` : Verify multiple memfds are isolated from each other
+- ⚠️ `test_execute_fileless_mmap_nop_sled` : Full integration test (marked `#[ignore]`)
 
 ---
 
