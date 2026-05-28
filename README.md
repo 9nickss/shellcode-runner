@@ -312,6 +312,25 @@ cargo test --lib
 - ✅ `test_memfd_isolation` : Verify multiple memfds are isolated from each other
 - ⚠️ `test_execute_fileless_mmap_nop_sled` : Full integration test (marked `#[ignore]`)
 
+### Encryption Tests
+Test XOR and AES-128-GCM encryption:
+
+```bash
+# Run all crypt tests
+cargo test --lib crypt
+
+# Run specific test
+cargo test --lib crypt::tests::test_xor_crypt_restores_original_data
+
+# Run with output
+cargo test --lib crypt -- --nocapture
+```
+
+**Test Coverage:**
+- ✅ `test_xor_crypt_restores_original_data` : XOR encryption is symmetric (double XOR = identity)
+- ✅ `test_parse_hex_returns_correct_byte` : Hex parsing with/without 0x prefix
+- ✅ `test_parse_hex_returns_error_on_invalid_input` : Error handling for invalid hex strings
+
 ---
 
 ## 🔧 Building
