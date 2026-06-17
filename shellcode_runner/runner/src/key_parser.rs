@@ -52,7 +52,7 @@ pub fn resolve_encryption(file: &str, algo_override: Option<Algo>,
             config.log("Using key override from args...");
             match &used_algo {
                 Algo::Xor => Key::Xor(parse_hex(&k)?),
-                Algo::Aes => crypt::parse_hex_bytes(&k).map(Key::Aes)?,
+                Algo::Aes => crypt::parse_hex_bytes(&k  ).map(Key::Aes)?,
             }
         },
         None => parse_key(file, &used_algo, &config)?
