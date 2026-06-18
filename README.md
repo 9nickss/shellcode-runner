@@ -17,9 +17,9 @@ A modular shellcode execution framework with encryption, obfuscation, and evasio
 - **Pipeline Tool** : Chain encryption and execution in a single command
 - **Modular Architecture** : Separate binaries for runner, encryptor, and pipeline with shared lib
 - **Fileless Execution (memfd + mmap)** : Load shellcode into anonymous in-memory file descriptor, mmap with rwx, execute with return capability. Slightly visible in `/proc/[pid]/maps`
+- **Fileless Execution (memfd + execveat)** : Execute directly from anonymous fd via `execveat()`. True fileless—completely invisible in maps. Process replacement only (no return)
 
 ### 🚧 In Progress / Planned
-- **Fileless Execution (memfd + execveat)** : Execute directly from anonymous fd via `execveat()`. True fileless—completely invisible in maps. Process replacement only (no return)
 - **Polymorphic Code Generation** : Mutate shellcode at each execution
 - **Junk Code Injection** : Obfuscate code patterns with meaningless instructions
 - **Process Injection** : Inject via ptrace or self-fork techniques
@@ -154,21 +154,28 @@ Load shellcode into anonymous in-memory file descriptor, map it with rwx permiss
 - ⚠️ Slightly visible in `/proc/[pid]/maps` during execution
 - ✅ Works with both XOR and AES encryption
 
-#### Strategy 2: memfd + execveat (coming soon 🚧)
+#### Strategy 2: memfd + execveat (implemented ✅)
 Execute directly from anonymous fd via `execveat()`. True fileless with complete invisibility in maps.
 
 ```bash
-# Planned usage:
+# Direct runner usage
 ./target/release/runner --fileless-execveat shellcodes/write.bin
-./target/release/pipeline --fileless-execveat shellcodes/write.bin
+./target/release/runner -v --fileless-execveat shellcodes/write.bin.xor
+./target/release/runner -v --fileless-execveat -a aes shellcodes/write.bin.aes
+
+# Via pipeline (encrypt + fileless execution)
+./target/release/pipeline --fileless-execveat shellcodes/write_elf
+./target/release/pipeline -v --fileless-execveat shellcodes/write_elf
+./target/release/pipeline -v -a aes --fileless-execveat shellcodes/write_elf
+./target/release/pipeline -v -a aes -k 0123456789ABCDEF0123456789ABCDEF --fileless-execveat shellcodes/write_elf
 ```
 
 **Characteristics:**
 - ✅ True fileless—completely invisible in `/proc/[pid]/maps`
 - ⚠️ Process replacement (no return possible)
 - ✅ Requires Linux 3.19+
-./target/release/runner -v --fileless-execveat shellcodes/write.bin.xor
-```
+- ✅ Works with both XOR and AES encryption
+
 **Use when:**
 - Shellcode is final (spawn shell, replace process)
 - Minimal detection footprint critical
