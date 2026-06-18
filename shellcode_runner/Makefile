@@ -15,6 +15,5 @@ clean:
 	cargo clean
 
 fclean: clean
-	rm -f target/release/runner target/release/encryptor target/release/pipeline
-
+	rm -f target/release/runner target/release/encryptor target/release/pipeline ../shellcodes/*.aes ../shellcodes/*.xor ../shellcodes/*.key ../shellcodes/*.o
 re: fclean all

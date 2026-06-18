@@ -23,6 +23,10 @@ struct Args {
     /// Use fileless execution with memfd + mmap (requires Linux 3.17+)
     #[arg(long)]
     fileless_mmap: bool,
+
+     /// Use fileless execution with memfd + execveat (requires ELF shellcode and Linux 3.19+)
+    #[arg(long)]
+    fileless_execveat: bool,
 }
 
 fn run_encryptor(args: &Args, algo_str: &str) {
@@ -50,6 +54,9 @@ fn run_runner(args: &Args, algo_str: &str, enc_file: &str) {
     }
     if args.fileless_mmap {
         cmd.arg("--fileless-mmap");
+    }
+    if args.fileless_execveat {
+        cmd.arg("--fileless-execveat");
     }
     cmd.status().expect("Failed to run runner");
 }
