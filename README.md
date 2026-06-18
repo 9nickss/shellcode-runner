@@ -132,7 +132,7 @@ cargo build --release
 
 The runner supports fileless execution strategies via `memfd_create` (Linux 3.17+):
 
-#### Strategy 1: memfd + mmap (implemented ✅)
+#### Strategy 1: memfd + mmap
 Load shellcode into anonymous in-memory file descriptor, map it with rwx permissions, then execute.
 
 ```bash
@@ -154,7 +154,7 @@ Load shellcode into anonymous in-memory file descriptor, map it with rwx permiss
 - ⚠️ Slightly visible in `/proc/[pid]/maps` during execution
 - ✅ Works with both XOR and AES encryption
 
-#### Strategy 2: memfd + execveat (implemented ✅)
+#### Strategy 2: memfd + execveat
 Execute directly from anonymous fd via `execveat()`. True fileless with complete invisibility in maps.
 
 ```bash
