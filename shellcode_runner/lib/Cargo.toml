@@ -8,4 +8,4 @@ libc = "0.2.185"
 nix = "0.31.2"
 aes-gcm = "0.10.3"
 clap = { version = "4", features = ["derive"] }
-iced-x86 = { version = "1", features = ["decoder", "formatter"] }
+iced-x86 = { version = "1", features = ["decoder"] }
