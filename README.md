@@ -15,13 +15,15 @@ A modular shellcode execution framework with encryption, obfuscation, and evasio
 - **Automatic Key Management** : Load encryption keys from .key files automatically
 - **Verbose Logging** : Detailed output for memory addresses and execution flow
 - **Pipeline Tool** : Chain encryption and execution in a single command
-- **Modular Architecture** : Separate binaries for runner, encryptor, and pipeline with shared lib
+- **Modular Architecture** : Separate binaries for runner, encryptor, pipeline, and obfuscator with shared lib
 - **Fileless Execution (memfd + mmap)** : Load shellcode into anonymous in-memory file descriptor, mmap with rwx, execute with return capability. Slightly visible in `/proc/[pid]/maps`
 - **Fileless Execution (memfd + execveat)** : Execute directly from anonymous fd via `execveat()`. True fileless—completely invisible in maps. Process replacement only (no return)
+- **Junk Code Injection (decoder)** : x86-64 instruction-aware decoder via `iced-x86` — correctly identifies instruction boundaries before injection. Injection logic in progress
 
 ### 🚧 In Progress / Planned
-- **Polymorphic Code Generation** : Mutate shellcode at each execution
-- **Junk Code Injection** : Obfuscate code patterns with meaningless instructions
+- **Junk Code Injection (injection)** : Insert NOP-equivalent sequences between real instructions using decoded boundaries — prevents splitting multi-byte instructions
+- **Obfuscator binary** : Standalone `obfuscator` binary with `--density` flag, structure in place, CLI wiring in progress
+- **Polymorphic Code Generation** : Mutate shellcode at each execution (register substitution, instruction reordering)
 - **Process Injection** : Inject via ptrace or self-fork techniques
 - **LD_PRELOAD Hijacking** : Load malicious shared libraries before system libraries
 - **PATH Manipulation** : Replace legitimate binaries with trojaned versions
@@ -39,30 +41,39 @@ shellcode-runner/
 ├── lib/                       # Shared library
 │   ├── Cargo.toml
 │   └── src/
-│       ├── lib.rs           # Module exports
-│       ├── crypt.rs         # XOR & AES encryption
-        ├── fileless.rs      # Fileless execution
-│       └── config.rs        # Configuration struct
+│       ├── lib.rs             # Module exports
+│       ├── crypt.rs           # XOR & AES encryption
+│       ├── fileless.rs        # Fileless execution
+│       ├── config.rs          # Configuration struct
+│       └── obfuscation/       # Obfuscation module
+│           ├── mod.rs         # Module exports
+│           ├── junk.rs        # Junk code injection (iced-x86 decoder ✅, injection 🚧)
+│           └── polymorphic.rs # Polymorphic generation (TODO)
 ├── runner/                    # Shellcode executor binary
 │   ├── Cargo.toml
 │   └── src/
-│       ├── runner.rs        # Main runner with decryption
-│       └── key_parser.rs    # Key resolution logic
+│       ├── runner.rs          # Main runner with decryption
+│       └── key_parser.rs      # Key resolution logic
 ├── encryptor/                 # Encryption binary
 │   ├── Cargo.toml
 │   └── src/
-│       └── encryptor.rs     # Encrypt shellcode (XOR/AES)
+│       └── encryptor.rs       # Encrypt shellcode (XOR/AES)
+├── obfuscator/                # Obfuscation binary (🚧 in progress)
+│   ├── Cargo.toml
+│   └── src/
+│       └── obfuscator.rs      # CLI wrapper for inject_junk
 ├── pipeline/                  # Combined encryption + execution
 │   ├── Cargo.toml
 │   └── src/
-│       └── pipeline.rs      # Chain encryptor → runner
+│       └── pipeline.rs        # Chain encryptor → runner
 └── README.md
 ```
 
 ### Workspace Architecture
-- **lib/** : Shared modules (crypt, config, utilities)
+- **lib/** : Shared modules (crypt, config, fileless, obfuscation)
 - **runner/** : Main shellcode executor with automatic decryption
 - **encryptor/** : Encryption tool (XOR & AES-128-GCM)
+- **obfuscator/** : Obfuscation tool — junk code injection via `iced-x86` (🚧 in progress)
 - **pipeline/** : Convenience tool to encrypt and execute in one command
 
 ---
@@ -85,13 +96,14 @@ You can build with **Makefile** (recommended) or directly with cargo:
 ```bash
 cd shellcode_runner
 
-# Build all binaries (runner, encryptor, pipeline)
+# Build all binaries (runner, encryptor, pipeline, obfuscator)
 make all
 
 # Build specific binary
 make runner
 make encryptor
 make pipeline
+make obfuscator
 
 # Clean build artifacts
 make clean
@@ -292,6 +304,35 @@ Encrypt shellcode and execute it in a single command.
 
 ---
 
+### Obfuscator 🚧
+
+Inject NOP-equivalent junk instructions between real x86-64 instructions using `iced-x86` for correct boundary detection.
+
+```bash
+# Inject junk at 20% density (default)
+./target/release/obfuscator shellcodes/write.bin
+
+# Custom density
+./target/release/obfuscator -d 0.4 shellcodes/write.bin
+
+# Verbose — shows each decoded instruction and injected junk
+./target/release/obfuscator -v shellcodes/write.bin
+```
+
+**Obfuscator Flags:**
+- `-d, --density <FLOAT>` : Junk injection probability per instruction boundary, 0.0–1.0 (default: `0.2`)
+- `-v, --verbose` : Show decoded instructions and injection points
+
+**Output Files:**
+- `shellcode.bin.obf` — obfuscated shellcode (can be chained with encryptor)
+
+**Design notes:**
+- Uses `iced-x86` decoder — never splits multi-byte instructions
+- Junk sequences are register/flag-safe (push/pop pairs, NOP variants)
+- No jumps patched yet — avoid shellcodes with relative jumps for now
+
+---
+
 ## 🧪 Testing
 
 ### Unit Tests
@@ -358,6 +399,7 @@ cargo build --release -p pipeline
 ./target/release/runner      # Shellcode executor
 ./target/release/encryptor   # Encryption tool (XOR & AES)
 ./target/release/pipeline    # Encrypt and execute in one command
+./target/release/obfuscator  # Junk code injection (🚧 in progress)
 ```
 
 **Dependencies:**
@@ -370,6 +412,7 @@ cargo build --release -p pipeline
 - `clap` - Command-line argument parsing with derive macros
 - `aes-gcm` - AES-128-GCM encryption with authenticated encryption
 - `nix` - ptrace and syscall support (for future features)
+- `iced-x86` - x86-64 instruction decoder for junk injection boundary detection
 
 ---
 
@@ -379,7 +422,7 @@ cargo build --release -p pipeline
 Shellcode mutates at each execution through instruction reordering, register substitution, and equivalent instruction replacement.
 
 ### Junk Code Injection
-Random meaningless instructions added to confuse signature analysis.
+NOP-equivalent sequences (push/pop pairs, multi-byte NOPs) inserted between real instructions to break signature analysis. Uses `iced-x86` to decode instruction boundaries first — never corrupts multi-byte instructions by splitting them mid-opcode.
 
 ### Fileless Execution
 Execute directly from `/proc/self/mem` or stack memory instead of mmapped regions, avoiding kernel-level AV hooks.
