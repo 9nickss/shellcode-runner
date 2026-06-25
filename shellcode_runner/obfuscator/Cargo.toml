@@ -1,0 +1,13 @@
+[package]
+name = "obfuscator"
+version.workspace = true
+edition.workspace = true
+
+[[bin]]
+name = "obfuscator"
+path = "src/obfuscator.rs"
+
+[dependencies]
+lib = { path = "../lib" }
+libc = "0.2.185"
+clap = { version = "4", features = ["derive"] }
