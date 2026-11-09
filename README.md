@@ -6,6 +6,8 @@
 
 A modular shellcode execution framework with encryption, obfuscation, and evasion techniques.
 
+![](shellcode_runner.png)
+
 ## 🎯 Project Goals
 
 ### ✅ Current Implementation
